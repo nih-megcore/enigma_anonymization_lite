@@ -1,0 +1,14 @@
+Bootstrap: docker
+From: ghcr.io/mne-tools/mne-python-plot:main
+
+%post
+	apt-get update && apt-get install -y git
+	pip install mne-bids coloredlogs tqdm pandas scikit-learn autoreject json_tricks fire h5py
+	git clone --depth 1 https://github.com/mne-tools/mne-bids-pipeline
+
+%environment
+    export LC_ALL=C
+    export PATH=/mne-bids-pipeline:$PATH
+
+%runscript
+	run.py
