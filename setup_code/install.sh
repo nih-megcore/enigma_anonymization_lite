@@ -1,18 +1,18 @@
 #!/bin/bash
 
-if [ ! -d ./BIDS_anon ] ;
+if [ ! -d ../BIDS_anon ] ;
 then
-	mkdir ./BIDS_anon
+	mkdir ../BIDS_anon
 fi
 
-if [ ! -d ./containers ];
+if [ ! -d ../containers ];
 then
-	mkdir ./containers
+	mkdir ../containers
 fi
 
-if [ ! -d ./routines ];
+if [ ! -d ../routines ];
 then
-	mkdir ./routines
+	mkdir ../routines
 fi
 
 
