@@ -13,25 +13,229 @@ import mne_bids
 import os, os.path as op 
 import glob
 
-topdir = '/data/enigma_prep'
+import shutil
+import matplotlib
+matplotlib.use('Qt5agg'); 
+import matplotlib.pyplot as plt; 
+
+from mne_bids import write_anat, BIDSPath
+
+
+#%% Setup
+n_jobs=10
+topdir = '/fast/enigma_prep'
 subjects_dir = f'{topdir}/SUBJECTS_DIR'
+QA_dir = f'{topdir}/QA'
+if not os.path.exists(QA_dir): os.mkdir(QA_dir)
+os.chdir(topdir)
 
 subjids = os.listdir(f'{topdir}/MRIS_ORIG')
 dframe = pd.DataFrame(subjids, columns=['subjids'])
 dframe['fs_id']=dframe.subjids.apply(lambda x: x+'_fs')
 dframe['fs_T1mgz'] = dframe.fs_id.apply(lambda x: op.join(subjects_dir, x, 'mri', 'T1.mgz'))
+dframe['T1nii'] = dframe.subjids.apply(lambda x: f'{topdir}/MRIS_ORIG/{x}/{x}.nii')
 dframe['trans_fname'] = dframe.subjids.apply(lambda x: f'{topdir}/transfiles/{x}-trans.fif')
 dframe['meg_fname'] = dframe.subjids.apply(lambda x: glob.glob(f'{topdir}/MEG/{x}_*rest*.ds')[0])
+dframe['bids_subjid'] = ['sub-'+str(i) for i in range(len(dframe))] 
+dframe['report_path'] = dframe.bids_subjid.apply(lambda x: op.join(QA_dir, x+'_report.html'))
 
-for idx, row in dframe.iterrows():
-    trans = mne.read_trans(row['trans_fname'])
-        
+# =============================================================================
+# Make a check function to verify that all files are present
+# =============================================================================
 
-#%%
+#%% Utility functions
 
+def subcommand(function_str):
+    from subprocess import check_call
+    check_call(function_str.split(' '))
+
+def read_meg(meg_fname):
+    if meg_fname[-1]==os.path.sep:
+        meg_fname=meg_fname[:-1]
+    _, ext = os.path.splitext(meg_fname)
+    if ext == '.fif':
+        return mne.io.read_raw_fif(meg_fname)
+    if ext == '.ds':
+        return mne.io.read_raw_ctf(meg_fname)
+
+
+#%%  Setup paths and confirm version
 assert mne_bids.__version__[0:3]=='0.8'
 
+code_topdir='/fast/enigma_meg_prep/setup_code'
 
+brain_template=f'{code_topdir}/talairach_mixed_with_skull.gca'
+assert os.path.exists(brain_template)
+face_template=f'{code_topdir}/face.gca'
+assert os.path.exists(face_template)
+subjects_dir =os.path.join(os.getcwd(),'SUBJECTS_DIR')
+if not os.path.exists(subjects_dir): os.mkdir(subjects_dir)
+os.environ['SUBJECTS_DIR'] = subjects_dir
+dframe['subjects_dir'] = subjects_dir
+# mne_bids_pipeline_path = '/home/stoutjd/src/mne-bids-pipeline/run.py'
+
+#%%  Make headsurfaces to confirm alignment and defacing
+# Setup and run freesurfer commands 
+
+def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None):
+    '''
+    Process scalp surfaces for subjid and anon_subjid
+    Render the coregistration for the subjid
+    Render the defaced Scalp for the subjid_anon
+    '''
+    
+    tmpdir = os.path.join(os.getcwd(), '_tmp')
+    if not os.path.exists(tmpdir):
+        os.mkdir(tmpdir)
+    
+    anon_subjid = subjid+'_defaced'
+    _tmp, ext = os.path.splitext(mri)
+    base = os.path.basename(_tmp)
+    anon_mri = os.path.join(tmpdir,base+'_defaced'+ext)
+    if os.path.exists(anon_mri): os.remove(anon_mri)            #<<<<<<<<<<<<<<  Add checks to not remove random path
+    print(f'Original:{mri}',f'Processed:{anon_mri}')
+    
+    # Set subjects dir path for subcommand call
+    os.environ['SUBJECTS_DIR']=subjects_dir
+        
+    subcommand(f'mri_deface {mri} {brain_template} {face_template} {anon_mri}')
+    
+    # Process original head surface
+    proc_o = [f'recon-all -i {mri} -s {subjid}',
+            f'recon-all -autorecon1 -noskullstrip -s {subjid}',
+            f'mkheadsurf -s {subjid}',
+            ]
+    for proc in proc_o:
+        subcommand(proc)    
+    
+    # Process anonymized head surface
+    proc_a = [f'mri_deface {mri} {brain_template} {face_template} {anon_mri}', 
+            f'recon-all -i {anon_mri} -s {anon_subjid}',
+            f'recon-all -autorecon1 -noskullstrip -s {anon_subjid}',
+            f'mkheadsurf -s {anon_subjid}',
+            ]
+    for proc in proc_a:
+        subcommand(proc)
+
+    # Cleanup
+    link_surf(subjid, subjects_dir=subjects_dir)
+    link_surf(anon_subjid, subjects_dir=subjects_dir)        
+    if os.path.exists(tmpdir):
+        shutil.rmtree(tmpdir)
+
+
+
+def make_QA_report(subjid=None, subjects_dir=None, 
+                 report_path=None, meg_fname=None, trans=None):
+    anon_subjid = subjid+'_defaced'
+    
+    if meg_fname is not None:
+        raw = read_meg(meg_fname)
+    
+    # Make Report    
+    rep = mne.Report()
+    null_info = mne.Info({'dig':raw.info['dig'], 'dev_ctf_t': raw.info['dev_ctf_t'], 
+                          'dev_head_t': raw.info['dev_head_t'], 'bads':[],
+                          'chs':[], 'ch_names':[], 'nchan':0})
+    tmp = mne.viz.plot_alignment(info=null_info, subject=subjid, subjects_dir=subjects_dir, 
+                             trans=trans, dig=True)  
+    rep.add_figs_to_section(figs=tmp, captions='Fiducials',
+                                    section='Coregistration')        
+    
+    tmp = mne.viz.plot_alignment(info=raw.info, subject=subjid, subjects_dir=subjects_dir, 
+                             trans=trans, dig=True)    
+    rep.add_figs_to_section(figs=tmp, captions='Head Alignment',
+                                    section='Coregistration')
+    tmp = mne.viz.plot_alignment(subject=anon_subjid)
+    rep.add_figs_to_section(figs=tmp, captions='Deface Confirmation',
+                                    section='Anonymization')    
+    rep.save(fname=report_path)
+    
+def validate_paths(in_dframe):
+    for i in in_dframe.values:
+        for j in i:
+            if os.ispath(j):
+                if not os.path.exists(j):
+                    print(f'Does not exists: {j}')
+        
+
+def link_surf(subjid=None, subjects_dir=None):
+    # Link files
+    s_bem_dir = f'{subjects_dir}/{subjid}/bem'
+    if not os.path.exists(s_bem_dir):
+        os.mkdir(s_bem_dir)
+    if not os.path.exists(f'{s_bem_dir}/outer_skin.surf'):
+        src_file = f'{subjects_dir}/{subjid}/surf/lh.seghead'
+        os.symlink(src_file, f'{s_bem_dir}/outer_skin.surf')
+
+#%% Loop over subjects to process freesurfer init
+
+# # =============================================================================
+# # Singlge subject processing
+# # =============================================================================
+# row = dframe.loc[0]
+# idx=0
+
+# mri = row['T1nii']
+# subjid = str(idx)
+# meg_fname = row['meg_fname']
+# trans_fname = row['trans_fname']
+
+# # mri='MRIS_ORIG/APBWVFAR/APBWVFAR.nii'
+# # subjid = 'tmp-1'
+# # outmri='./deface.nii'
+# report_path = './report.html'
+# meg_fname = '/data/enigma_prep/MEG/APBWVFAR_rest_20200122_03.ds'
+# trans_fname = '/data/enigma_prep/transfiles/APBWVFAR-trans.fif'
+
+
+
+
+# make_scalp_surfaces_anon(mri=mri, subjid=subjid, subjects_dir=subjects_dir)
+# make_QA_report(subjid=subjid, subjects_dir=subjects_dir, 
+#                  report_path=report_path, meg_fname=meg_fname, trans=trans_fname)
+
+
+# =============================================================================
+# Make muliprocess calls looped over subjid
+# =============================================================================
+from multiprocessing import Pool
+
+## SETUP MAKE_SCALP_SURFACES
+inframe = dframe.loc[:,['T1nii','bids_subjid', 'subjects_dir']]
+# inframe['subjects_dir']=[subjects_dir]*len(inframe)
+with Pool(processes=n_jobs) as pool:
+    pool.starmap(make_scalp_surfaces_anon,
+                     inframe.values)
+
+try: 
+    del inframe 
+except:
+    pass
+inframe = dframe.loc[:,['bids_subjid','subjects_dir','report_path', 'meg_fname','trans_fname']]
+
+## SETUP Make Report
+with Pool(processes=n_jobs) as pool:
+    pool.starmap(make_QA_report, inframe.values)
+                 
+
+
+# pool = Pool(processes=10)
+# pool.starmap(make_scalp_surfaces_anon,
+#                      inframe.values)
+
+
+#     L = pool.starmap(make_scalp_surfaces_anon, 
+#                      zip([dframe['T1nii'],
+#                       dframe['subjid'],
+#                       [subjects_dir]*len(dframe),
+#                       ]))
+#     # M = pool.starmap(func, zip(a_args, repeat(second_arg)))
+#     # N = pool.map(partial(func, b=second_arg), a_args)
+#     # assert L == M == N
+
+
+#%% Create the bids from the anonymized MRI
 for idx, row in dframe.iterrows():
     sub=str(idx)
     ses='01'
@@ -39,20 +243,30 @@ for idx, row in dframe.iterrows():
     output_path_anon = f'{topdir}/bids_out_anon'
     
     raw = mne.io.read_raw_ctf(row['meg_fname'])
+    trans = mne.read_trans(row['trans_fname'])
+    t1_path = row['T1nii']
     
     t1w_bids_path = \
         BIDSPath(subject=sub, session=ses, root=output_path, suffix='T1w')
-    t1w_bids_path_anon = \
-        BIDSPath(subject=sub, session=ses, root=output_path_anon, suffix='T1w')
+    # t1w_bids_path_anon = \
+    #     BIDSPath(subject=sub, session=ses, root=output_path_anon, suffix='T1w')
 
-    
+
     landmarks = mne_bids.get_anat_landmarks(
-        image=row['fs_T1mgz'],
+        image=row['T1nii'],
         info=raw.info,
         trans=trans,
         fs_subject=row['fs_id'],
         fs_subjects_dir=subjects_dir
         )
+    
+    # landmarks = mne_bids.get_anat_landmarks(
+    #     image=row['fs_T1mgz'],
+    #     info=raw.info,
+    #     trans=trans,
+    #     fs_subject=row['fs_id'],
+    #     fs_subjects_dir=subjects_dir
+    #     )
     
     # Write regular
     t1w_bids_path = write_anat(
@@ -124,6 +338,17 @@ for idx, row in combined_dframe.iterrows():
     write_raw_bids(raw, bids_path)
 
 
+
+
+#%%
+
+
+    
+
+
+
+
+#%%
 
 ###############################################################################
 # We can save the MRI to our existing BIDS directory and at the same time
