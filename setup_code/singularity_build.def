@@ -3,7 +3,7 @@ From: ghcr.io/mne-tools/mne-python-plot:main
 
 %post
 	apt-get update && apt-get install -y git
-	apt-get install libgomp1
+	apt-get install -y libgomp1
 	pip install mne-bids coloredlogs tqdm pandas scikit-learn autoreject json_tricks fire h5py
 	git clone --depth 1 https://github.com/mne-tools/mne-bids-pipeline
 	wget https://surfer.nmr.mgh.harvard.edu/pub/dist/mri_deface/mri_deface_linux 
