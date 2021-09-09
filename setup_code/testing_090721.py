@@ -36,7 +36,7 @@ dframe['fs_T1mgz'] = dframe.fs_id.apply(lambda x: op.join(subjects_dir, x, 'mri'
 dframe['T1nii'] = dframe.subjids.apply(lambda x: f'{topdir}/MRIS_ORIG/{x}/{x}.nii')
 dframe['trans_fname'] = dframe.subjids.apply(lambda x: f'{topdir}/transfiles/{x}-trans.fif')
 dframe['meg_fname'] = dframe.subjids.apply(lambda x: glob.glob(f'{topdir}/MEG/{x}_*rest*.ds')[0])
-dframe['bids_subjid'] = ['sub-'+str(i) for i in range(len(dframe))] 
+dframe['bids_subjid'] = ['sub-'+"{0:0=4d}".format(i) for i in range(len(dframe))] 
 dframe['report_path'] = dframe.bids_subjid.apply(lambda x: op.join(QA_dir, x+'_report.html'))
 
 # =============================================================================
@@ -73,9 +73,11 @@ if not os.path.exists(subjects_dir): os.mkdir(subjects_dir)
 os.environ['SUBJECTS_DIR'] = subjects_dir
 dframe['subjects_dir'] = subjects_dir
 # mne_bids_pipeline_path = '/home/stoutjd/src/mne-bids-pipeline/run.py'
+mri_staging_dir = f'{topdir}/mri_staging'
 
 #%%  Make headsurfaces to confirm alignment and defacing
 # Setup and run freesurfer commands 
+
 
 def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None):
     '''
@@ -92,7 +94,10 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None):
     _tmp, ext = os.path.splitext(mri)
     base = os.path.basename(_tmp)
     anon_mri = os.path.join(tmpdir,base+'_defaced'+ext)
-    if os.path.exists(anon_mri): os.remove(anon_mri)            #<<<<<<<<<<<<<<  Add checks to not remove random path
+    if os.path.exists(anon_mri): 
+        #To prevent removing erroneous data make sure this is the correct dir
+        assert op.basename(op.dirname(anon_mri)) == '_tmp'
+        os.remove(anon_mri)           
     print(f'Original:{mri}',f'Processed:{anon_mri}')
     
     # Set subjects dir path for subcommand call
@@ -123,7 +128,16 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None):
     if os.path.exists(tmpdir):
         shutil.rmtree(tmpdir)
 
-
+import copy
+import matplotlib
+def make_flr_image(mne_fig):
+    fig, axs = matplotlib.pyplot.subplots(2,2)
+    axs[0,0] = copy(mne_fig)
+    mne.viz.set_3d_view(im_r, azimuth=0)
+    im_f = copy(mne_fig)
+    mne.viz.set_3d_view(im_f, azimuth=45)
+    im_l = copy(mne_fig)
+    mne.viz.set_3d_view(im_l, azimuth=115)
 
 def make_QA_report(subjid=None, subjects_dir=None, 
                  report_path=None, meg_fname=None, trans=None):
@@ -199,7 +213,18 @@ def link_surf(subjid=None, subjects_dir=None):
 # =============================================================================
 # Make muliprocess calls looped over subjid
 # =============================================================================
+#%% Process Data
 from multiprocessing import Pool
+
+# Copy T1 from original location to staging area
+if not os.path.exists(mri_staging_dir): os.mkdir(mri_staging_dir)
+for idx,row in dframe.iterrows(): #t1_fname in dframe['T1nii']:
+    _, ext = os.path.splitext(row['T1nii'])
+    out_fname = row['bids_subjid']+ext
+    out_path = op.join(mri_staging_dir, out_fname) 
+    shutil.copy(row['T1nii'], out_path)
+    
+
 
 ## SETUP MAKE_SCALP_SURFACES
 inframe = dframe.loc[:,['T1nii','bids_subjid', 'subjects_dir']]
@@ -340,7 +365,7 @@ for idx, row in combined_dframe.iterrows():
 
 
 
-#%%
+# #%%
 
 
     
@@ -348,75 +373,75 @@ for idx, row in combined_dframe.iterrows():
 
 
 
-#%%
+# #%%
 
-###############################################################################
-# We can save the MRI to our existing BIDS directory and at the same time
-# create a JSON sidecar file that contains metadata, we will later use to
-# retrieve our transformation matrix :code:`trans`. The metadata will here
-# consist of the coordinates of three anatomical landmarks (LPA, Nasion and
-# RPA (=left and right preauricular points) expressed in voxel coordinates
-# w.r.t. the T1 image.
+# ###############################################################################
+# # We can save the MRI to our existing BIDS directory and at the same time
+# # create a JSON sidecar file that contains metadata, we will later use to
+# # retrieve our transformation matrix :code:`trans`. The metadata will here
+# # consist of the coordinates of three anatomical landmarks (LPA, Nasion and
+# # RPA (=left and right preauricular points) expressed in voxel coordinates
+# # w.r.t. the T1 image.
 
-# First create the BIDSPath object.
-t1w_bids_path = \
-    BIDSPath(subject=sub, session=ses, root=output_path, suffix='T1w')
+# # First create the BIDSPath object.
+# t1w_bids_path = \
+#     BIDSPath(subject=sub, session=ses, root=output_path, suffix='T1w')
 
-# # We use the write_anat function
-# t1w_bids_path = write_anat(
-#     image=t1_mgh_fname,  # path to the MRI scan
-#     bids_path=t1w_bids_path,
-#     raw=raw,  # the raw MEG data file connected to the MRI
-#     trans=trans,  # our transformation matrix
-#     verbose=True, # this will print out the sidecar file
-#     overwrite=True
-# )
-anat_dir = t1w_bids_path.directory
+# # # We use the write_anat function
+# # t1w_bids_path = write_anat(
+# #     image=t1_mgh_fname,  # path to the MRI scan
+# #     bids_path=t1w_bids_path,
+# #     raw=raw,  # the raw MEG data file connected to the MRI
+# #     trans=trans,  # our transformation matrix
+# #     verbose=True, # this will print out the sidecar file
+# #     overwrite=True
+# # )
+# anat_dir = t1w_bids_path.directory
 
-###############################################################################
-# Let's have another look at our BIDS directory
-print_dir_tree(output_path)
+# ###############################################################################
+# # Let's have another look at our BIDS directory
+# print_dir_tree(output_path)
 
 
-#%%
-###############################################################################
-# Our BIDS dataset is now ready to be shared. We can easily estimate the
-# transformation matrix using ``MNE-BIDS`` and the BIDS dataset.
-estim_trans = get_head_mri_trans(bids_path=bids_path,
-                                 fs_subject='sub-'+sub,
-                                 fs_subjects_dir=subjects_dir)
+# #%%
+# ###############################################################################
+# # Our BIDS dataset is now ready to be shared. We can easily estimate the
+# # transformation matrix using ``MNE-BIDS`` and the BIDS dataset.
+# estim_trans = get_head_mri_trans(bids_path=bids_path,
+#                                  fs_subject='sub-'+sub,
+#                                  fs_subjects_dir=subjects_dir)
 
-###############################################################################
-# Finally, let's use the T1 weighted MRI image and plot the anatomical
-# landmarks Nasion, LPA, and RPA onto the brain image. For that, we can
-# extract the location of Nasion, LPA, and RPA from the MEG file, apply our
-# transformation matrix :code:`trans`, and plot the results.
+# ###############################################################################
+# # Finally, let's use the T1 weighted MRI image and plot the anatomical
+# # landmarks Nasion, LPA, and RPA onto the brain image. For that, we can
+# # extract the location of Nasion, LPA, and RPA from the MEG file, apply our
+# # transformation matrix :code:`trans`, and plot the results.
 
-# Get Landmarks from MEG file, 0, 1, and 2 correspond to LPA, NAS, RPA
-# and the 'r' key will provide us with the xyz coordinates. The coordinates
-# are expressed here in MEG Head coordinate system.
-pos = np.asarray((raw.info['dig'][0]['r'],
-                  raw.info['dig'][1]['r'],
-                  raw.info['dig'][2]['r']))
+# # Get Landmarks from MEG file, 0, 1, and 2 correspond to LPA, NAS, RPA
+# # and the 'r' key will provide us with the xyz coordinates. The coordinates
+# # are expressed here in MEG Head coordinate system.
+# pos = np.asarray((raw.info['dig'][0]['r'],
+#                   raw.info['dig'][1]['r'],
+#                   raw.info['dig'][2]['r']))
 
-# We now use the ``head_to_mri`` function from MNE-Python to convert MEG
-# coordinates to MRI scanner RAS space. For the conversion we use our
-# estimated transformation matrix and the MEG coordinates extracted from the
-# raw file. `subjects` and `subjects_dir` are used internally, to point to
-# the T1-weighted MRI file: `t1_mgh_fname`. Coordinates are is mm.
-mri_pos = head_to_mri(pos=pos,
-                      subject='sample',
-                      mri_head_t=estim_trans,
-                      subjects_dir=op.join(data_path, 'subjects'))
+# # We now use the ``head_to_mri`` function from MNE-Python to convert MEG
+# # coordinates to MRI scanner RAS space. For the conversion we use our
+# # estimated transformation matrix and the MEG coordinates extracted from the
+# # raw file. `subjects` and `subjects_dir` are used internally, to point to
+# # the T1-weighted MRI file: `t1_mgh_fname`. Coordinates are is mm.
+# mri_pos = head_to_mri(pos=pos,
+#                       subject='sample',
+#                       mri_head_t=estim_trans,
+#                       subjects_dir=op.join(data_path, 'subjects'))
 
-# Our MRI written to BIDS, we got `anat_dir` from our `write_anat` function
-t1_nii_fname = op.join(anat_dir, 'sub-1_ses-01_T1w.nii.gz')
+# # Our MRI written to BIDS, we got `anat_dir` from our `write_anat` function
+# t1_nii_fname = op.join(anat_dir, 'sub-1_ses-01_T1w.nii.gz')
 
-# Plot it
-fig, axs = plt.subplots(3, 1, figsize=(7, 7), facecolor='k')
-for point_idx, label in enumerate(('LPA', 'NAS', 'RPA')):
-    plot_anat(t1_nii_fname, axes=axs[point_idx],
-              cut_coords=mri_pos[point_idx, :],
-              title=label, vmax=160)
-plt.show()
+# # Plot it
+# fig, axs = plt.subplots(3, 1, figsize=(7, 7), facecolor='k')
+# for point_idx, label in enumerate(('LPA', 'NAS', 'RPA')):
+#     plot_anat(t1_nii_fname, axes=axs[point_idx],
+#               cut_coords=mri_pos[point_idx, :],
+#               title=label, vmax=160)
+# plt.show()
 
