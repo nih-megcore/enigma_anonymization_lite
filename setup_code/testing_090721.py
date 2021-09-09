@@ -18,7 +18,7 @@ import matplotlib
 matplotlib.use('Qt5agg'); 
 import matplotlib.pyplot as plt; 
 
-from mne_bids import write_anat, BIDSPath
+from mne_bids import write_anat, BIDSPath, write_raw_bids
 
 
 #%% Setup
@@ -39,6 +39,7 @@ dframe['meg_fname'] = dframe.subjids.apply(lambda x: glob.glob(f'{topdir}/MEG/{x
 dframe['bids_subjid'] = ['sub-'+"{0:0=4d}".format(i) for i in range(len(dframe))] 
 dframe['report_path'] = dframe.bids_subjid.apply(lambda x: op.join(QA_dir, x+'_report.html'))
 
+line_freq = 60.0
 
 #%% Utility functions
 
@@ -173,7 +174,7 @@ def link_surf(subjid=None, subjects_dir=None):
 from multiprocessing import Pool
 
 # Copy T1 from original location to staging area
-dframe['T1staged']=''
+dframe['T1staged'] = ''
 if not os.path.exists(mri_staging_dir): os.mkdir(mri_staging_dir)
 for idx,row in dframe.iterrows(): #t1_fname in dframe['T1nii']:
     _, ext = os.path.splitext(row['T1nii'])
@@ -187,6 +188,9 @@ inframe = dframe.loc[:,['T1staged','bids_subjid', 'subjects_dir']]
 with Pool(processes=n_jobs) as pool:
     pool.starmap(make_scalp_surfaces_anon,
                      inframe.values)
+
+dframe['T1anon']=dframe['T1staged'].apply(
+    lambda x: op.splitext(x)[0]+'_defaced'+op.splitext(x)[1])
 
 ## Cleanup mri_deface log files
 anon_logs = glob.glob(op.join(os.getcwd(), '*defaced.log'))
@@ -204,46 +208,58 @@ with Pool(processes=n_jobs) as pool:
     pool.starmap(make_QA_report, inframe.values)
     
 
-                 
+#%% Process BIDS
+bids_dir = f'{topdir}/bids_out'
+if not os.path.exists(bids_dir): os.mkdir(bids_dir)
+
+combined_dframe = dframe
+# =============================================================================
+# Convert MEG
+# =============================================================================
+for idx, row in combined_dframe.iterrows():
+    print(idx)
+    print(row)
+    raw_fname = row['meg_fname'] #row.full_meg_path
+    output_path = bids_dir
+    
+    raw = read_meg(raw_fname)  
+    raw.info['line_freq'] = line_freq 
+    
+    sub = row['bids_subjid'][4:] #Remove sub- prefix from name
+    ses = '01'
+    task = 'rest'
+    run = '01'
+    bids_path = BIDSPath(subject=sub, session=ses, task=task,
+                         run=run, root=bids_dir, suffix='meg')
+    write_raw_bids(raw, bids_path)
+
 #%% Create the bids from the anonymized MRI
 for idx, row in dframe.iterrows():
-    sub=str(idx)
+    sub=row['bids_subjid'][4:] 
     ses='01'
     output_path = f'{topdir}/bids_out'
-    output_path_anon = f'{topdir}/bids_out_anon'
     
-    raw = mne.io.read_raw_ctf(row['meg_fname'])
+    raw = read_meg(row['meg_fname'])
     trans = mne.read_trans(row['trans_fname'])
-    t1_path = row['T1nii']
+    t1_path = row['T1anon']
     
     t1w_bids_path = \
         BIDSPath(subject=sub, session=ses, root=output_path, suffix='T1w')
-    # t1w_bids_path_anon = \
-    #     BIDSPath(subject=sub, session=ses, root=output_path_anon, suffix='T1w')
-
 
     landmarks = mne_bids.get_anat_landmarks(
-        image=row['T1nii'],
+        image=row['T1anon'],
         info=raw.info,
         trans=trans,
-        fs_subject=row['fs_id'],
+        fs_subject=row['bids_subjid']+'_defaced',
         fs_subjects_dir=subjects_dir
         )
     
-    # landmarks = mne_bids.get_anat_landmarks(
-    #     image=row['fs_T1mgz'],
-    #     info=raw.info,
-    #     trans=trans,
-    #     fs_subject=row['fs_id'],
-    #     fs_subjects_dir=subjects_dir
-    #     )
-    
     # Write regular
     t1w_bids_path = write_anat(
-        image=t1_mgh_fname,
+        image=row['T1anon'],
         bids_path=t1w_bids_path,
         landmarks=landmarks,
-        deface=False,
+        deface=False,  #Deface already done
         overwrite=True
         )
     
@@ -251,52 +267,52 @@ for idx, row in dframe.iterrows():
 
 
 
-#%% Write MEG    
-line_freq = 60.0
+# #%% Write MEG    
+# line_freq = 60.0
 
-for idx, row in dframe.iterrows():
-    sub=str(idx)
-    ses='01'
-    output_path = f'{topdir}/bids_out'
-    output_path_anon = f'{topdir}/bids_out_anon'
+# for idx, row in dframe.iterrows():
+#     sub=str(idx)
+#     ses='01'
+#     output_path = f'{topdir}/bids_out'
+#     output_path_anon = f'{topdir}/bids_out_anon'
     
-    raw = mne.io.read_raw_ctf(row['meg_fname'])
-    raw.info['line_freq'] = line_freq 
+#     raw = mne.io.read_raw_ctf(row['meg_fname'])
+#     raw.info['line_freq'] = line_freq 
     
-    task = 'rest'
-    run = '01'
-    bids_path = BIDSPath(subject=sub, session=ses, task=task,
-                         run=run, root=output_path, suffix='meg')
-    write_raw_bids(raw, bids_path)
+#     task = 'rest'
+#     run = '01'
+#     bids_path = BIDSPath(subject=sub, session=ses, task=task,
+#                          run=run, root=output_path, suffix='meg')
+#     write_raw_bids(raw, bids_path)
     
-    # t1w_bids_path = \
-    #     BIDSPath(subject=sub, session=ses, root=output_path, suffix='T1w')
-    # t1w_bids_path_anon = \
-    #     BIDSPath(subject=sub, session=ses, root=output_path_anon, suffix='T1w')
+#     # t1w_bids_path = \
+#     #     BIDSPath(subject=sub, session=ses, root=output_path, suffix='T1w')
+#     # t1w_bids_path_anon = \
+#     #     BIDSPath(subject=sub, session=ses, root=output_path_anon, suffix='T1w')
 
-#%% 
-for idx, row in combined_dframe.iterrows():
-    print(idx)
-    print(row)
-    subject = row.meg_subjid
-    mri_fname = row.full_mri_path
-    raw_fname = row.full_meg_path
-    output_path = bids_dir
+# #%% 
+# for idx, row in combined_dframe.iterrows():
+#     print(idx)
+#     print(row)
+#     subject = row.meg_subjid
+#     mri_fname = row.full_mri_path
+#     raw_fname = row.full_meg_path
+#     output_path = bids_dir
     
-    raw = mne.io.read_raw_ctf(raw_fname)  #Change this - should be generic for meg vender
-    raw.info['line_freq'] = line_freq 
+#     raw = mne.io.read_raw_ctf(raw_fname)  #Change this - should be generic for meg vender
+#     raw.info['line_freq'] = line_freq 
     
-    # events = mne.make_fixed_length_events(raw, duration=4.0)
+#     # events = mne.make_fixed_length_events(raw, duration=4.0)
 
-    sub = "{0:0=4d}".format(idx)
-    ses = '01'
-    task = 'rest'
-    run = '01'
-    bids_path = BIDSPath(subject=sub, session=ses, task=task,
-                         run=run, root=output_path, suffix='meg')
+#     sub = "{0:0=4d}".format(idx)
+#     ses = '01'
+#     task = 'rest'
+#     run = '01'
+#     bids_path = BIDSPath(subject=sub, session=ses, task=task,
+#                          run=run, root=output_path, suffix='meg')
     
-    # write_raw_bids(raw, bids_path, events_data=events, event_id={'rest':1}) 
-    write_raw_bids(raw, bids_path)
+#     # write_raw_bids(raw, bids_path, events_data=events, event_id={'rest':1}) 
+#     write_raw_bids(raw, bids_path)
 
 
 
