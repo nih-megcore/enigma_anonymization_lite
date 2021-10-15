@@ -485,22 +485,47 @@ combined_dframe = dframe
 # =============================================================================
 # Convert MEG
 # =============================================================================
+# for idx, row in combined_dframe.iterrows():
+#     print(idx)
+#     print(row)
+#     raw_fname = row['meg_fname'] #row.full_meg_path
+#     output_path = bids_dir
+    
+#     raw = read_meg(raw_fname)  
+#     raw.info['line_freq'] = line_freq 
+    
+#     sub = row['bids_subjid'][4:] #Remove sub- prefix from name
+#     ses = '01'
+#     task = 'rest'
+#     run = '01'
+#     bids_path = BIDSPath(subject=sub, session=ses, task=task,
+#                          run=run, root=bids_dir, suffix='meg')
+#     write_raw_bids(raw, bids_path)
+    
+errors=[]
 for idx, row in combined_dframe.iterrows():
-    print(idx)
-    print(row)
-    raw_fname = row['meg_fname'] #row.full_meg_path
-    output_path = bids_dir
-    
-    raw = read_meg(raw_fname)  
-    raw.info['line_freq'] = line_freq 
-    
-    sub = row['bids_subjid'][4:] #Remove sub- prefix from name
-    ses = '01'
-    task = 'rest'
-    run = '01'
-    bids_path = BIDSPath(subject=sub, session=ses, task=task,
-                         run=run, root=bids_dir, suffix='meg')
-    write_raw_bids(raw, bids_path)
+    try:
+        print(idx)
+        print(row)
+        subject = row.meg_subjid
+        mri_fname = row.full_mri_path   #Will need to change to confirm anon
+        raw_fname = row.full_meg_path
+        output_path = bids_dir
+        
+        raw = mne.io.read_raw_ctf(raw_fname)  #Change this - should be generic for meg vender
+        raw.info['line_freq'] = line_freq 
+        
+        sub = row['bids_subjid'][4:] 
+        ses = '0'+str(int(row['meg_session']) )
+        task = 'rest'
+        run = '01'
+        bids_path = BIDSPath(subject=sub, session=ses, task=task,
+                             run=run, root=output_path, suffix='meg')
+        
+        write_raw_bids(raw, bids_path)
+    except BaseException as e:
+        errors.append(e)
+        
 
 #%% Create the bids from the anonymized MRI
 for idx, row in dframe.iterrows():
@@ -509,7 +534,7 @@ for idx, row in dframe.iterrows():
         ses='01'
         output_path = f'{topdir}/bids_out'
         
-        raw = read_meg(row['meg_fname'])
+        raw = read_meg(row['meg_fname'])          #FIX currently should be full_meg_path - need to verify anon
         trans = mne.read_trans(row['trans_fname'])
         t1_path = row['T1anon']
         
@@ -542,44 +567,44 @@ for idx, row in dframe.iterrows():
 # # =============================================================================
 # # TEMP GET RID OF THIS
 # # =============================================================================
-def make_scalp_surfaces_anon2(mri=None, subjid=None, subjects_dir=None):
-    '''
-    Process scalp surfaces for subjid and anon_subjid
-    Render the coregistration for the subjid
-    Render the defaced Scalp for the subjid_anon
-    '''
-    try: 
-        anon_subjid = subjid+'_defaced'
-        prefix, ext = os.path.splitext(mri)
-        anon_mri = prefix+'_defaced'+ext #os.path.join(prefix+'_defaced'+ext)
-        print(f'Original:{mri}',f'Processed:{anon_mri}')
+# def make_scalp_surfaces_anon2(mri=None, subjid=None, subjects_dir=None):
+#     '''
+#     Process scalp surfaces for subjid and anon_subjid
+#     Render the coregistration for the subjid
+#     Render the defaced Scalp for the subjid_anon
+#     '''
+#     try: 
+#         anon_subjid = subjid+'_defaced'
+#         prefix, ext = os.path.splitext(mri)
+#         anon_mri = prefix+'_defaced'+ext #os.path.join(prefix+'_defaced'+ext)
+#         print(f'Original:{mri}',f'Processed:{anon_mri}')
         
-        # Set subjects dir path for subcommand call
-        os.environ['SUBJECTS_DIR']=subjects_dir
+#         # Set subjects dir path for subcommand call
+#         os.environ['SUBJECTS_DIR']=subjects_dir
         
-        # proc_tmp = f"mkheadsurf -i {op.join(subjects_dir, subjid, 'mri', 'T1.mgz')} \
-        #     -o {op.join(subjects_dir, subjid, 'mri', 'seghead.mgz')} \
-        #     -surf {op.join(subjects_dir, subjid, 'surf', 'lh.smseghead')}"
-        # proc_tmp = ' '.join(proc_tmp.split())
+#         # proc_tmp = f"mkheadsurf -i {op.join(subjects_dir, subjid, 'mri', 'T1.mgz')} \
+#         #     -o {op.join(subjects_dir, subjid, 'mri', 'seghead.mgz')} \
+#         #     -surf {op.join(subjects_dir, subjid, 'surf', 'lh.smseghead')}"
+#         # proc_tmp = ' '.join(proc_tmp.split())
         
-        # subcommand(proc_tmp)
+#         # subcommand(proc_tmp)
         
-        # proc_tmp2 = f"mkheadsurf -i {op.join(subjects_dir, anon_subjid, 'mri', 'T1.mgz')} \
-        #     -o {op.join(subjects_dir, anon_subjid, 'mri', 'seghead.mgz')} \
-        #     -surf {op.join(subjects_dir, anon_subjid, 'surf', 'lh.smseghead')}"
-        # proc_tmp2 = ' '.join(proc_tmp2.split())
+#         # proc_tmp2 = f"mkheadsurf -i {op.join(subjects_dir, anon_subjid, 'mri', 'T1.mgz')} \
+#         #     -o {op.join(subjects_dir, anon_subjid, 'mri', 'seghead.mgz')} \
+#         #     -surf {op.join(subjects_dir, anon_subjid, 'surf', 'lh.smseghead')}"
+#         # proc_tmp2 = ' '.join(proc_tmp2.split())
         
-        # subcommand(proc_tmp2)
+#         # subcommand(proc_tmp2)
                            
         
-        # Cleanup
-        link_surf(subjid, subjects_dir=subjects_dir)
-        link_surf(anon_subjid, subjects_dir=subjects_dir)      
-    except:
-        pass
+#         # Cleanup
+#         link_surf(subjid, subjects_dir=subjects_dir)
+#         link_surf(anon_subjid, subjects_dir=subjects_dir)      
+#     except:
+#         pass
     
-for idx, row in dframe.iterrows():
-    trans_fname=op.join('./trans_mats', row['bids_subjid']+'_'+str(int(row['meg_session']))+'-trans.fif')
-    dframe.loc[idx,'trans_fname']=trans_fname
+# for idx, row in dframe.iterrows():
+#     trans_fname=op.join('./trans_mats', row['bids_subjid']+'_'+str(int(row['meg_session']))+'-trans.fif')
+#     dframe.loc[idx,'trans_fname']=trans_fname
 
  
