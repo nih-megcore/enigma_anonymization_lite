@@ -504,35 +504,38 @@ for idx, row in combined_dframe.iterrows():
 
 #%% Create the bids from the anonymized MRI
 for idx, row in dframe.iterrows():
-    sub=row['bids_subjid'][4:] 
-    ses='01'
-    output_path = f'{topdir}/bids_out'
+    try:
+        sub=row['bids_subjid'][4:] 
+        ses='01'
+        output_path = f'{topdir}/bids_out'
+        
+        raw = read_meg(row['meg_fname'])
+        trans = mne.read_trans(row['trans_fname'])
+        t1_path = row['T1anon']
+        
+        t1w_bids_path = \
+            BIDSPath(subject=sub, session=ses, root=output_path, suffix='T1w')
     
-    raw = read_meg(row['meg_fname'])
-    trans = mne.read_trans(row['trans_fname'])
-    t1_path = row['T1anon']
-    
-    t1w_bids_path = \
-        BIDSPath(subject=sub, session=ses, root=output_path, suffix='T1w')
-
-    landmarks = mne_bids.get_anat_landmarks(
-        image=row['T1anon'],
-        info=raw.info,
-        trans=trans,
-        fs_subject=row['bids_subjid']+'_defaced',
-        fs_subjects_dir=subjects_dir
-        )
-    
-    # Write regular
-    t1w_bids_path = write_anat(
-        image=row['T1anon'],
-        bids_path=t1w_bids_path,
-        landmarks=landmarks,
-        deface=False,  #Deface already done
-        overwrite=True
-        )
-    
-    anat_dir = t1w_bids_path.directory   
+        landmarks = mne_bids.get_anat_landmarks(
+            image=row['T1anon'],
+            info=raw.info,
+            trans=trans,
+            fs_subject=row['bids_subjid']+'_defaced',
+            fs_subjects_dir=subjects_dir
+            )
+        
+        # Write regular
+        t1w_bids_path = write_anat(
+            image=row['T1anon'],
+            bids_path=t1w_bids_path,
+            landmarks=landmarks,
+            deface=False,  #Deface already done
+            overwrite=True
+            )
+        
+        anat_dir = t1w_bids_path.directory   
+    except:
+        pass
 
 
 
