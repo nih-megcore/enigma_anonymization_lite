@@ -12,6 +12,9 @@ import mne
 import mne_bids
 import os, os.path as op 
 import glob
+import re
+import copy
+import numpy as np
 
 import shutil
 import matplotlib
@@ -22,63 +25,38 @@ from mne_bids import write_anat, BIDSPath, write_raw_bids
 
 #%% Setup
 n_jobs=6
-topdir = '/fast/TMP_10'
-subjects_dir = f'{topdir}/SUBJECTS_DIR'
-QA_dir = f'{topdir}/QA'
-if not os.path.exists(QA_dir): os.mkdir(QA_dir)
+line_freq = 60.0
+
+topdir = '/home/stojek/enigma_final'
 os.chdir(topdir)
 
+subjects_dir = f'{topdir}/SUBJECTS_DIR'
+if not os.path.exists(subjects_dir): os.mkdir(subjects_dir)
+os.environ['SUBJECTS_DIR'] = subjects_dir
 
-#%%
-meg_template = '/fast/TMP_10/MEG/{DATE}/{SUBJID}_{TASK}_{DATE}_??.ds'
-mri_template = '/fast/TMP_10/MRI/{SUBJID}/{SUBJID}.nii'
+#Directory to save html files
+QA_dir = f'{topdir}/QA'
+if not os.path.exists(QA_dir): os.mkdir(QA_dir)
 
-mri_dframe, meg_dframe = return_mri_meg_dframes(mri_template, meg_template)
-        
-meg_dframe['date'] = meg_dframe.full_meg_path.apply(_return_date, key_index=-3 )
-meg_dframe['task'] = meg_dframe.full_meg_path.apply(lambda x: x.split('_')[-4])
-not_rest_idxs = meg_dframe[~meg_dframe['task'].isin(['rest'])].index
-meg_dframe.drop(index=not_rest_idxs, inplace=True)
+#%%  Setup paths and confirm version
+assert mne_bids.__version__[0:3]>='0.8'
 
-meg_dframe.sort_values(['meg_subjid','date'])
-meg_dframe = assign_meg_session(meg_dframe)
+code_topdir=f'{topdir}/setup_code' 
 
-combined_dframe  = pd.merge(mri_dframe, meg_dframe, left_on='mri_subjid', 
-                            right_on='meg_subjid')
-combined_dframe.reset_index(drop=True, inplace=True)
+brain_template=f'{code_topdir}/talairach_mixed_with_skull.gca'
+assert os.path.exists(brain_template)
+face_template=f'{code_topdir}/face.gca'
+assert os.path.exists(face_template)
 
-import numpy as np
-orig_subj_list = combined_dframe['meg_subjid'].unique()
-tmp = np.arange(len(orig_subj_list), dtype=int)
-np.random.shuffle(tmp)  #Change the index for subjids
+mri_staging_dir = f'{topdir}/mri_staging'
 
-for rnd_idx, subjid in enumerate(orig_subj_list):
-    print(subjid)
-    print(str(rnd_idx))
-    subjid_idxs = combined_dframe[combined_dframe['meg_subjid']==subjid].index
-    combined_dframe.loc[subjid_idxs,'bids_subjid'] = "sub-{0:0=4d}".format(tmp[rnd_idx])
-
-bids_dir = './bids_out'
-if not os.path.exists(bids_dir): os.mkdir(bids_dir)
-
-
-
-subjects_dir=f'{topdir}/SUBJECTS_DIR'
-
-
-
-if not 'combined_dframe' in locals().keys():
-    combined_dframe = pd.read_csv('MasterList.csv', index_col='Unnamed: 0')
-
-# line_freq = 60.0
-combined_dframe['fs_T1mgz'] = combined_dframe.bids_subjid.apply(lambda x: op.join(subjects_dir, x, 'mri', 'T1.mgz'))
-# combined_dframe['trans_fname'] = combined_dframe.subjids.apply(lambda x: f'{topdir}/transfiles/{x}-trans.fif')
-combined_dframe['report_path'] = combined_dframe.bids_subjid.apply(lambda x: op.join(QA_dir, x+'_report.html'))
-line_freq = 60.0
-dframe=combined_dframe
+keyword_identifiers={'SUBJID': [],
+                     'SUBJID_first': [], 
+                     'SUBJID_last': [],
+                     'DATE': [], 
+                     'TASK': []}
 
 #%% Utility functions
-
 def subcommand(function_str):
     from subprocess import check_call
     check_call(function_str.split(' '))
@@ -99,22 +77,178 @@ def assign_report_path(dframe, QAdir='./QA'):
         session=str(int(row['meg_session']))
         QA_fname = op.join(QAdir, f'{subjid}_sess_{session}.html')
         dframe.loc[idx,'report_path']=QA_fname
+        
+def return_mri_meg_dframes(mri_template, meg_template):
+    meg_rest_dataset = meg_template 
+    mri_dataset = mri_template 
+
+    mri_key_indices=split_names(mri_dataset, keyword_identifiers)
+    meg_key_indices=split_names(meg_rest_dataset, keyword_identifiers)
+    
+    mri_subjid_from_dir=_proc_steps(mri_dataset) 
+    meg_subjid_from_dir = _proc_steps(meg_rest_dataset)
+    
+    for key in mri_key_indices.keys():
+        mri_dataset = mri_dataset.replace('{'+key+'}', '*')
+    for key in meg_key_indices.keys():
+        meg_rest_dataset = meg_rest_dataset.replace('{'+key+'}', '*')
+        
+    mri_inputs = glob.glob(mri_dataset)
+    meg_inputs = glob.glob(meg_rest_dataset)
+    
+    meg_dframe = pd.DataFrame(meg_inputs, columns=['full_meg_path'])
+    mri_dframe = pd.DataFrame(mri_inputs, columns=['full_mri_path'])
+    
+    if meg_subjid_from_dir:
+        meg_dframe['meg_subjid']=\
+            meg_dframe.full_meg_path.apply(dir_at_pos, 
+                                           position=meg_key_indices['SUBJID'][-1])
+    else:
+        meg_dframe['meg_subjid']=\
+            meg_dframe.full_meg_path.apply(subjid_from_filename)
+        
+    if mri_subjid_from_dir:
+        mri_dframe['mri_subjid']=\
+            mri_dframe.full_mri_path.apply(dir_at_pos, 
+                                           position=mri_key_indices['SUBJID'][-1])
+    else:
+        mri_dframe['mri_subjid']=\
+            mri_dframe.full_mri_path.apply(subjid_from_filename)
+            
+    return mri_dframe, meg_dframe
+
+# =============================================================================
+# Convenience Functions
+# =============================================================================
+def _keyword_indices(input_list, keyword):
+    return [i for i, x in enumerate(input_list) if x == keyword]
+    
+
+def split_names(filename, keyword_identifiers):
+    '''Split filenames and find the location of the keywords'''
+    output=re.split('{|}',filename)
+    if not os.path.isabs(output[0]):
+        print('''The path to the filename must be an absolute pathname and not
+              a relative pathname.
+              For Windows this must start with the drive letter (eg C: or  D: ...)
+              For Mac or Linux this must start with /
+              ''')
+        raise ValueError
+        
+    for key in keyword_identifiers.keys():
+        keyword_identifiers[key]=_keyword_indices(output, key)
+    new_dict = {key:val for key, val in keyword_identifiers.items() if val != []}
+    return new_dict
+
+def _proc_steps(filename):
+    '''If subjid in folder name, return True'''
+    split_on_keys = re.split('{|}', filename)
+    split_on_subjid = re.split('{SUBJID}', filename)
+    
+    if os.path.sep in split_on_subjid[-1]:
+        folder_subjname=True
+    else:
+        folder_subjname=False
+    return folder_subjname
+ 
+def _meg_type(strval):
+    suffix=os.path.splitext(strval)
+    if suffix not in ['.fif', '.ds', '4D', '.sqd']:
+        return None
+    else:
+        return suffix
+    
+def _return_date(path, key_index=-2):
+    return op.basename(path).split('_')[key_index]    
+    
+
+def dir_at_pos(file_path, position=-1):
+    '''Split directories and return the one at position'''
+    return os.path.normpath(file_path).split(os.sep)[position]
+
+def subjid_from_filename(filename, position=[0], split_on='_', multi_index_cat='_'):
+    filename = os.path.basename(filename)
+    tmp = os.path.splitext(filename)
+    if len(tmp)>2:
+        return 'Error on split extension - Possibly mutiple "." in filename'
+    if not isinstance(position, list):
+        print('The position variable must be a list even if a single entry')
+        raise ValueError
+    filename = os.path.splitext(filename)[0]
+    filename_parts = filename.split(split_on)    
+    subjid_components = [filename_parts[idx] for idx in position]
+    if isinstance(subjid_components, str) or len(subjid_components)==1:
+        return subjid_components[0]
+    elif len(subjid_components)>1:
+        return multi_index_cat.join(subjid_components)
+    else:
+        return 'Error'
+
+def print_multiple_mris(mri_dframe):
+    subjs_mri_count = mri_dframe.mri_subjid.value_counts()
+    subjs_wMulti_mri = subjs_mri_count[subjs_mri_count>1]
+    mri_dframe[mri_dframe.mri_subjid.isin(subjs_wMulti_mri.index)]
+    
+def keyname_to_glob(filename, keyword_identifiers):
+    '''Converts key identifiers to glob output and returns the filenames
+    associated with the glob output'''
+    glob_filename=copy.deepcopy(filename)
+    key_indices = split_names(keyed_filename, keyword_identifiers)
+    
+    for key in key_indices.keys():
+        glob_filename=glob_filename.replace('{'+key+'}', '*')
+    return glob.glob(glob_filename)
+
+def assign_meg_session(dframe):
+    dframe=copy.deepcopy(dframe)
+    subjids = dframe['meg_subjid'].unique()
+    for subjid in subjids:
+        idxs = dframe[dframe['meg_subjid']==subjid].index
+        dframe.loc[idxs,'meg_session'] = np.arange(1,len(idxs)+1, dtype=int)
+    return dframe
+    
+
+#%% Setup dataframe for processing
+meg_template = '/home/stojek/enigma_final/meg/{DATE}/{SUBJID}_{TASK}_{DATE}_??_anon.ds'
+mri_template = '/home/stojek/enigma_final/mris_nii/{SUBJID}/{SUBJID}.nii'
+
+mri_dframe, meg_dframe = return_mri_meg_dframes(mri_template, meg_template)
+        
+meg_dframe['date'] = meg_dframe.full_meg_path.apply(_return_date, key_index=-3 )
+meg_dframe['task'] = meg_dframe.full_meg_path.apply(lambda x: x.split('_')[-4])
+not_rest_idxs = meg_dframe[~meg_dframe['task'].isin(['rest'])].index
+meg_dframe.drop(index=not_rest_idxs, inplace=True)
+
+meg_dframe.sort_values(['meg_subjid','date'])
+meg_dframe = assign_meg_session(meg_dframe)
+
+combined_dframe  = pd.merge(mri_dframe, meg_dframe, left_on='mri_subjid', 
+                            right_on='meg_subjid')
+combined_dframe.reset_index(drop=True, inplace=True)
 
 
-#%%  Setup paths and confirm version
-assert mne_bids.__version__[0:3]>='0.8'
+orig_subj_list = combined_dframe['meg_subjid'].unique()
+tmp = np.arange(len(orig_subj_list), dtype=int)
+np.random.shuffle(tmp)  #Change the index for subjids
 
-code_topdir=f'{topdir}/setup_code' #/fast/enigma_meg_prep/setup_code'
+for rnd_idx, subjid in enumerate(orig_subj_list):
+    print(subjid)
+    print(str(rnd_idx))
+    subjid_idxs = combined_dframe[combined_dframe['meg_subjid']==subjid].index
+    combined_dframe.loc[subjid_idxs,'bids_subjid'] = "sub-{0:0=4d}".format(tmp[rnd_idx])
 
-brain_template=f'{code_topdir}/talairach_mixed_with_skull.gca'
-assert os.path.exists(brain_template)
-face_template=f'{code_topdir}/face.gca'
-assert os.path.exists(face_template)
-subjects_dir =os.path.join(os.getcwd(),'SUBJECTS_DIR')
-if not os.path.exists(subjects_dir): os.mkdir(subjects_dir)
-os.environ['SUBJECTS_DIR'] = subjects_dir
+bids_dir = './bids_out'
+if not os.path.exists(bids_dir): os.mkdir(bids_dir)
+
+if not 'combined_dframe' in locals().keys():
+    combined_dframe = pd.read_csv('MasterList.csv', index_col='Unnamed: 0')
+
+combined_dframe['fs_T1mgz'] = combined_dframe.bids_subjid.apply(lambda x: op.join(subjects_dir, x, 'mri', 'T1.mgz'))
+combined_dframe['report_path'] = combined_dframe.bids_subjid.apply(lambda x: op.join(QA_dir, x+'_report.html'))
+
+dframe=combined_dframe
 dframe['subjects_dir'] = subjects_dir
-mri_staging_dir = f'{topdir}/mri_staging'
+assign_report_path(dframe, f'{topdir}/QA')
 
 #%%  Make headsurfaces to confirm alignment and defacing
 # Setup and run freesurfer commands 
@@ -125,60 +259,56 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None):
     Render the coregistration for the subjid
     Render the defaced Scalp for the subjid_anon
     '''
+    anon_subjid = subjid+'_defaced'
+    prefix, ext = os.path.splitext(mri)
+    anon_mri = prefix+'_defaced'+ext #os.path.join(prefix+'_defaced'+ext)
+    print(f'Original:{mri}',f'Processed:{anon_mri}')
+    
+    # Set subjects dir path for subcommand call
+    os.environ['SUBJECTS_DIR']=subjects_dir
+    
     try: 
-        anon_subjid = subjid+'_defaced'
-        prefix, ext = os.path.splitext(mri)
-        anon_mri = prefix+'_defaced'+ext #os.path.join(prefix+'_defaced'+ext)
-        print(f'Original:{mri}',f'Processed:{anon_mri}')
-        
-        # Set subjects dir path for subcommand call
-        os.environ['SUBJECTS_DIR']=subjects_dir
-            
         subcommand(f'mri_deface {mri} {brain_template} {face_template} {anon_mri}')
-        
+    except:
+        pass
+    
+    try:
         proc_o = [f'recon-all -i {mri} -s {subjid}',
                 f'recon-all -autorecon1 -noskullstrip -s {subjid}',
-                f'mkheadsurf -s {subjid}',
                 ]
         proc_tmp = f"mkheadsurf -i {op.join(subjects_dir, subjid, 'mri', 'T1.mgz')} \
             -o {op.join(subjects_dir, subjid, 'mri', 'seghead.mgz')} \
-            -surf {op.join(subjects_dir, subjid, 'surf', 'lh.smseghead')}"
-                           
+            -surf {op.join(subjects_dir, subjid, 'surf', 'lh.seghead')}"
+        proc_tmp = ' '.join(proc_tmp.split()) #Remove extra whitespace                          
         proc_o.append(proc_tmp)
-        
-        # # Process original head surface
-        # proc_o = [f'recon-all -i {mri} -s {subjid}',
-        #         f'recon-all -autorecon1 -noskullstrip -s {subjid}',
-        #         f'mkheadsurf -s {subjid}',
-        #         ]
+
         for proc in proc_o:
             subcommand(proc)    
-        
+    except:
+        pass
+    
+    try:
         # Process anonymized head surface
         proc_a = [
                 f'recon-all -i {anon_mri} -s {anon_subjid}',
                 f'recon-all -autorecon1 -noskullstrip -s {anon_subjid}',
-                f'mkheadsurf -s {anon_subjid}',
                 ]
+        proc_a_tmp = f"mkheadsurf -i {op.join(subjects_dir, anon_subjid, 'mri', 'T1.mgz')} \
+            -o {op.join(subjects_dir, anon_subjid, 'mri', 'seghead.mgz')} \
+            -surf {op.join(subjects_dir, anon_subjid, 'surf', 'lh.seghead')}"
+        proc_a_tmp = ' '.join(proc_a_tmp.split()) #Remove extra whitespace       
+        proc_a.append(proc_a_tmp)
         for proc in proc_a:
             subcommand(proc)
+    except:
+        pass
     
+    try:
         # Cleanup
         link_surf(subjid, subjects_dir=subjects_dir)
         link_surf(anon_subjid, subjects_dir=subjects_dir)      
     except:
         pass
-
-# import copy
-# import matplotlib
-# def make_flr_image(mne_fig):
-#     fig, axs = matplotlib.pyplot.subplots(2,2)
-#     axs[0,0] = copy(mne_fig)
-#     mne.viz.set_3d_view(im_r, azimuth=0)
-#     im_f = copy(mne_fig)
-#     mne.viz.set_3d_view(im_f, azimuth=45)
-#     im_l = copy(mne_fig)
-#     mne.viz.set_3d_view(im_l, azimuth=115)
 
 def make_QA_report(subjid=None, subjects_dir=None, 
                  report_path=None, meg_fname=None, trans=None):
@@ -256,6 +386,7 @@ for idx,row in dframe.iterrows(): #t1_fname in dframe['T1nii']:
     shutil.copy(row['full_mri_path'], out_path)
     dframe.loc[idx, 'T1staged'] = out_path
     
+dframe.to_csv('MasterList.csv')
 ## SETUP MAKE_SCALP_SURFACES
 inframe = dframe.loc[:,['T1staged','bids_subjid', 'subjects_dir']]
 #Remove duplicates over sessions
@@ -283,6 +414,8 @@ except:
 from nih2mne.calc_mnetrans import write_mne_fiducials 
 from nih2mne.calc_mnetrans import write_mne_trans
 
+if not os.path.exists(f'{topdir}/trans_mats'): os.mkdir(f'{topdir}/trans_mats')
+
 for idx, row in dframe.iterrows():
     if op.splitext(row['full_mri_path'])[-1] == '.gz':
         afni_fname=row['full_mri_path'].replace('.nii.gz','+orig.HEAD')
@@ -307,15 +440,14 @@ for idx, row in dframe.iterrows():
     except:
         print('error in trans calculation '+row['bids_subjid'])
 
- 
                    
-## SEtup report    
-inframe = dframe.loc[:,['bids_subjid','subjects_dir','report_path', 
-                        'full_meg_path','trans_fname']]
+# ## SEtup report    
+# inframe = dframe.loc[:,['bids_subjid','subjects_dir','report_path', 
+#                         'full_meg_path','trans_fname']]
 
-## SETUP Make Report
-with Pool(processes=n_jobs) as pool:
-    pool.starmap(make_QA_report, inframe.values)
+# ## SETUP Make Report
+# with Pool(processes=n_jobs) as pool:
+#     pool.starmap(make_QA_report, inframe.values)
   
 
 for idx, row in dframe.iterrows():
@@ -333,8 +465,17 @@ for idx, row in dframe.iterrows():
     except:
         pass
 
-    
 
+
+
+
+
+
+
+#%%    
+# =============================================================================
+# STOP HERE PRIOR TO BIDS PROCESSING
+# =============================================================================
 
 #%% Process BIDS
 bids_dir = f'{topdir}/bids_out'
