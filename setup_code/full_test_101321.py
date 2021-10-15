@@ -20,24 +20,52 @@ import matplotlib.pyplot as plt;
 
 from mne_bids import write_anat, BIDSPath, write_raw_bids
 
-
 #%% Setup
 n_jobs=6
-topdir = '/fast/enigma_prep'
+topdir = '/fast/TMP_10'
 subjects_dir = f'{topdir}/SUBJECTS_DIR'
 QA_dir = f'{topdir}/QA'
 if not os.path.exists(QA_dir): os.mkdir(QA_dir)
 os.chdir(topdir)
 
-# subjids = os.listdir(f'{topdir}/MRIS_ORIG')
-# dframe = pd.DataFrame(subjids, columns=['subjids'])
-# dframe['fs_id']=dframe.subjids.apply(lambda x: x+'_fs')
-# dframe['fs_T1mgz'] = dframe.fs_id.apply(lambda x: op.join(subjects_dir, x, 'mri', 'T1.mgz'))
-# dframe['T1nii'] = dframe.subjids.apply(lambda x: f'{topdir}/MRIS_ORIG/{x}/{x}.nii')
-# dframe['trans_fname'] = dframe.subjids.apply(lambda x: f'{topdir}/transfiles/{x}-trans.fif')
-# dframe['meg_fname'] = dframe.subjids.apply(lambda x: glob.glob(f'{topdir}/MEG/{x}_*rest*.ds')[0])
-# dframe['bids_subjid'] = ['sub-'+"{0:0=4d}".format(i) for i in range(len(dframe))] 
-# dframe['report_path'] = dframe.bids_subjid.apply(lambda x: op.join(QA_dir, x+'_report.html'))
+
+#%%
+meg_template = '/fast/TMP_10/MEG/{DATE}/{SUBJID}_{TASK}_{DATE}_??.ds'
+mri_template = '/fast/TMP_10/MRI/{SUBJID}/{SUBJID}.nii'
+
+mri_dframe, meg_dframe = return_mri_meg_dframes(mri_template, meg_template)
+        
+meg_dframe['date'] = meg_dframe.full_meg_path.apply(_return_date, key_index=-3 )
+meg_dframe['task'] = meg_dframe.full_meg_path.apply(lambda x: x.split('_')[-4])
+not_rest_idxs = meg_dframe[~meg_dframe['task'].isin(['rest'])].index
+meg_dframe.drop(index=not_rest_idxs, inplace=True)
+
+meg_dframe.sort_values(['meg_subjid','date'])
+meg_dframe = assign_meg_session(meg_dframe)
+
+combined_dframe  = pd.merge(mri_dframe, meg_dframe, left_on='mri_subjid', 
+                            right_on='meg_subjid')
+combined_dframe.reset_index(drop=True, inplace=True)
+
+import numpy as np
+orig_subj_list = combined_dframe['meg_subjid'].unique()
+tmp = np.arange(len(orig_subj_list), dtype=int)
+np.random.shuffle(tmp)  #Change the index for subjids
+
+for rnd_idx, subjid in enumerate(orig_subj_list):
+    print(subjid)
+    print(str(rnd_idx))
+    subjid_idxs = combined_dframe[combined_dframe['meg_subjid']==subjid].index
+    combined_dframe.loc[subjid_idxs,'bids_subjid'] = "sub-{0:0=4d}".format(tmp[rnd_idx])
+
+bids_dir = './bids_out'
+if not os.path.exists(bids_dir): os.mkdir(bids_dir)
+
+
+
+subjects_dir=f'{topdir}/SUBJECTS_DIR'
+
+
 
 if not 'combined_dframe' in locals().keys():
     combined_dframe = pd.read_csv('MasterList.csv', index_col='Unnamed: 0')
@@ -63,6 +91,14 @@ def read_meg(meg_fname):
         return mne.io.read_raw_fif(meg_fname)
     if ext == '.ds':
         return mne.io.read_raw_ctf(meg_fname)
+    
+def assign_report_path(dframe, QAdir='./QA'):
+    '''Add subject id and session to each report filename in dataframe'''
+    for idx,row in dframe.iterrows():
+        subjid=row['bids_subjid']
+        session=str(int(row['meg_session']))
+        QA_fname = op.join(QAdir, f'{subjid}_sess_{session}.html')
+        dframe.loc[idx,'report_path']=QA_fname
 
 
 #%%  Setup paths and confirm version
