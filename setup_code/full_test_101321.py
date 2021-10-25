@@ -329,7 +329,7 @@ def make_QA_report(subjid=None, subjects_dir=None,
                                         section='Coregistration')        
         
         tmp = mne.viz.plot_alignment(info=raw.info, subject=subjid, subjects_dir=subjects_dir, 
-                                 trans=trans, dig=True)    
+                                 trans=trans, dig=True, coord_frame='meg')    
         rep.add_figs_to_section(figs=tmp, captions='Head Alignment',
                                         section='Coregistration')
         tmp = mne.viz.plot_alignment(subject=anon_subjid)
