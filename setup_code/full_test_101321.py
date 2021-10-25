@@ -27,8 +27,6 @@ import matplotlib.pyplot as plt;
 
 from mne_bids import write_anat, BIDSPath, write_raw_bids
 
-#%% Download required files
-
 
 #%% Setup
 n_jobs=6
@@ -46,9 +44,11 @@ os.environ['SUBJECTS_DIR'] = subjects_dir
 QA_dir = f'{topdir}/QA'
 if not os.path.exists(QA_dir): os.mkdir(QA_dir)
 
-# Create setup directory
-
+# Create setup directory with defacing templates
 code_topdir=f'{topdir}/setup_code'
+brain_template=f'{code_topdir}/talairach_mixed_with_skull.gca'
+face_template=f'{code_topdir}/face.gca'
+
 if not op.exists(code_topdir): os.mkdir(code_topdir)
 if not op.exists(f'{code_topdir}/face.gca'):
     wget.download('https://surfer.nmr.mgh.harvard.edu/pub/dist/mri_deface/face.gca.gz',
@@ -62,17 +62,12 @@ if not op.exists(f'{code_topdir}/talairach_mixed_with_skull.gca'):
     with gzip.open(f'{code_topdir}/talairach_mixed_with_skull.gca.gz', 'rb') as f_in:
         with open(f'{code_topdir}/talairach_mixed_with_skull.gca', 'wb') as f_out: 
             shutil.copyfileobj(f_in, f_out)
-    
+
+assert os.path.exists(brain_template)    
+assert os.path.exists(face_template)
 
 #%%  Setup paths and confirm version
 assert mne_bids.__version__[0:3]>='0.8'
-
-code_topdir=f'{topdir}/setup_code' 
-
-brain_template=f'{code_topdir}/talairach_mixed_with_skull.gca'
-assert os.path.exists(brain_template)
-face_template=f'{code_topdir}/face.gca'
-assert os.path.exists(face_template)
 
 mri_staging_dir = f'{topdir}/mri_staging'
 
