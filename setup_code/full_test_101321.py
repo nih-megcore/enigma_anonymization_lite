@@ -15,6 +15,10 @@ import glob
 import re
 import copy
 import numpy as np
+import logging
+
+import wget #  !pip install wget
+import gzip
 
 import shutil
 import matplotlib
@@ -23,6 +27,9 @@ import matplotlib.pyplot as plt;
 
 from mne_bids import write_anat, BIDSPath, write_raw_bids
 
+#%% Download required files
+
+
 #%% Setup
 n_jobs=6
 line_freq = 60.0
@@ -30,6 +37,7 @@ line_freq = 60.0
 topdir = '/home/stojek/enigma_final'
 os.chdir(topdir)
 
+# Create freesurfer folder
 subjects_dir = f'{topdir}/SUBJECTS_DIR'
 if not os.path.exists(subjects_dir): os.mkdir(subjects_dir)
 os.environ['SUBJECTS_DIR'] = subjects_dir
@@ -37,6 +45,24 @@ os.environ['SUBJECTS_DIR'] = subjects_dir
 #Directory to save html files
 QA_dir = f'{topdir}/QA'
 if not os.path.exists(QA_dir): os.mkdir(QA_dir)
+
+# Create setup directory
+
+code_topdir=f'{topdir}/setup_code'
+if not op.exists(code_topdir): os.mkdir(code_topdir)
+if not op.exists(f'{code_topdir}/face.gca'):
+    wget.download('https://surfer.nmr.mgh.harvard.edu/pub/dist/mri_deface/face.gca.gz',
+         out=code_topdir)
+    with gzip.open(f'{code_topdir}/face.gca.gz', 'rb') as f_in:
+        with open(f'{code_topdir}/face.gca', 'wb') as f_out:
+            shutil.copyfileobj(f_in, f_out)
+if not op.exists(f'{code_topdir}/talairach_mixed_with_skull.gca'):
+    wget.download('https://surfer.nmr.mgh.harvard.edu/pub/dist/mri_deface/talairach_mixed_with_skull.gca.gz',
+         out=code_topdir)
+    with gzip.open(f'{code_topdir}/talairach_mixed_with_skull.gca.gz', 'rb') as f_in:
+        with open(f'{code_topdir}/talairach_mixed_with_skull.gca', 'wb') as f_out: 
+            shutil.copyfileobj(f_in, f_out)
+    
 
 #%%  Setup paths and confirm version
 assert mne_bids.__version__[0:3]>='0.8'
