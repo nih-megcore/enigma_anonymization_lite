@@ -233,8 +233,10 @@ def _ctf_anonymize(meg_fname, outdir='./'):
     tmp_ = op.basename(meg_fname)
     pre_, suff_ = op.splitext(tmp_)
     outname = op.join(outdir, f'{pre_}_anon{suff_}')
+    if shutil.which('newDs') is None:
+        raise(SystemError('newDs not found - it does not appear that the CTF\
+                          package is installed or cannot be found in this shell'))
     sub_cmd = f'newDs -anon {meg_fname} {outname}'
-    # sub_cmd = ' '.join(sub_cmd.split())  # remove extra whitespace
     subprocess.run(sub_cmd.split())
     
 def _fif_anonymize(meg_fname, outdir='./'):
@@ -251,6 +253,22 @@ def anonymize_meg(meg_fname):
     elif op.splitext(meg_fname)[-1]=='.fif':
         _fif_anonymize(meg_fname)
         
+def convert_brik(mri_fname):
+    if op.splitext(mri_fname)[-1] not in ['.BRIK', '.HEAD']:
+        raise(TypeError('Must be an afni BRIK or HEAD file to convert'))
+    import shutil
+    if shutil.which('3dAFNItoNIFTI') is None:
+        raise(SystemError('It does not appear Afni is installed, cannot call\
+                          3dAFNItoNIFTI'))
+    basename = op.basename(mri_fname)
+    dirname = op.dirname(mri_fname)
+    outname = basename.split('+')[0]+'.nii'
+    outname = op.join(dirname, outname)
+    subcmd = f'3dAFNItoNIFTI {mri_fname} {outname}'
+    subprocess.run(subcmd.split())
+    print(f'Converted {mri_fname} to nifti')
+    
+              
     
 
 #%% Setup dataframe for processing
