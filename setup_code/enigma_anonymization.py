@@ -16,6 +16,7 @@ import re
 import copy
 import numpy as np
 import logging
+import subprocess
 
 import wget #  !pip install wget
 import gzip
@@ -227,6 +228,29 @@ def assign_meg_session(dframe):
         idxs = dframe[dframe['meg_subjid']==subjid].index
         dframe.loc[idxs,'meg_session'] = np.arange(1,len(idxs)+1, dtype=int)
     return dframe
+
+def _ctf_anonymize(meg_fname, outdir='./'):
+    tmp_ = op.basename(meg_fname)
+    pre_, suff_ = op.splitext(tmp_)
+    outname = op.join(outdir, f'{pre_}_anon{suff_}')
+    sub_cmd = f'newDs -anon {meg_fname} {outname}'
+    # sub_cmd = ' '.join(sub_cmd.split())  # remove extra whitespace
+    subprocess.run(sub_cmd.split())
+    
+def _fif_anonymize(meg_fname, outdir='./'):
+    tmp_ = op.basename(meg_fname)
+    pre_, suff_ = op.splitext(tmp_)
+    outname = op.join(outdir, f'{pre_}_anon{suff_}')   
+    raw = mne.io.read_raw_fif(meg_fname)
+    raw.anonymize()
+    raw.save(outname)
+
+def anonymize_meg(meg_fname):
+    if op.splitext(meg_fname)[-1]=='.ds':
+        _ctf_anonymize(meg_fname)
+    elif op.splitext(meg_fname)[-1]=='.fif':
+        _fif_anonymize(meg_fname)
+        
     
 
 #%% Setup dataframe for processing
