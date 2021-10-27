@@ -28,6 +28,11 @@ import matplotlib.pyplot as plt;
 
 from mne_bids import write_anat, BIDSPath, write_raw_bids
 
+#%%  Confirm softare version
+assert mne_bids.__version__[0:3]>='0.8'
+if shutil.which('recon-all') == None:
+    raise('Freesurfer is not installed or on your path')
+
 
 #%% Setup
 n_jobs=6
@@ -67,8 +72,7 @@ if not op.exists(f'{code_topdir}/talairach_mixed_with_skull.gca'):
 assert os.path.exists(brain_template)    
 assert os.path.exists(face_template)
 
-#%%  Setup paths and confirm version
-assert mne_bids.__version__[0:3]>='0.8'
+#%%
 
 mri_staging_dir = f'{topdir}/mri_staging'
 
@@ -268,7 +272,22 @@ def convert_brik(mri_fname):
     subprocess.run(subcmd.split())
     print(f'Converted {mri_fname} to nifti')
     
-              
+def _clean_up_all():
+    '''Remove all processing files in topdir.
+    Prompts user for deletion of data'''
+    files = os.listdir('.')
+    cleanup_dirs = ['QA','setup_code', 'SUBJECTS_DIR']
+    
+    del_dirs = []
+    for dirname in cleanup_dirs:
+        if dirname in files:
+            del_dirs.append(dirname)
+    print('!!!!!    WARNING DATA LOSS    !!!!!')
+    confirm = input(f'Do you want to delete these folders (y\\n):\n{del_dirs}\n')
+    if confirm.lower() == 'y':
+        for del_i in del_dirs:
+            print(f'Removing {del_i}')
+            shutil.rmtree(del_i)              
     
 
 #%% Setup dataframe for processing
@@ -503,7 +522,7 @@ for idx, row in dframe.iterrows():
     except:
         print('error in trans calculation '+row['bids_subjid'])
 
-                   
+dframe.to_csv('MasterList_final.csv')                   
 # ## SEtup report    
 # inframe = dframe.loc[:,['bids_subjid','subjects_dir','report_path', 
 #                         'full_meg_path','trans_fname']]
