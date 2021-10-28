@@ -1,3 +1,11 @@
+
+#>>>> https://stackoverflow.com/questions/53382383/makefile-cant-use-conda-activate
+# Need to specify bash in order for conda activate to work.
+SHELL=/bin/bash
+# Note that the extra activate is needed to ensure that the activate floats env to the front of PATH
+CONDA_ACTIVATE=source $$(conda info --base)/etc/profile.d/conda.sh ; conda activate ; conda activate 
+# <<<<
+
 install:
 	conda install -c conda-forge mne -n enigma_meg_prep
 	pip install wget
@@ -5,13 +13,12 @@ install:
 
 	
 install_test:
-	conda activate base
-	conda install mamba -y 
+	conda install mamba -y -n base
 	mamba create -n enigma_prep_test -c conda-forge mne -y
-	mamba activate enigma_prep_test
-	pip install wget datalad pytest 
-	pip install git+https://github.com/nih-megcore/nih_to_mne
-	pip install git+https://github.com/jstout211/enigma_MEG
+	($(CONDA_ACTIVATE) enigma_prep_test ; pip install wget datalad pytest)
+	($(CONDA_ACTIVATE) enigma_prep_test ; pip install git+https://github.com/nih-megcore/nih_to_mne)
+	($(CONDA_ACTIVATE) enigma_prep_test ; pip install git+https://github.com/jstout211/enigma_MEG)
+	
 
 install_system_requirements:
 	dnf install Xvfb -y
