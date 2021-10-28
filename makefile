@@ -20,8 +20,9 @@ install_test:
 
 install_system_requirements:
 	dnf install Xvfb -y
+	dnf install git git-annex -y
 
 test:
-	Xvfb :99
-
+	Xvfb :99 &
+	
 	($(CONDA_ACTIVATE) enigma_prep_test ; pytest)
