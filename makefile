@@ -14,7 +14,7 @@ install:
 	
 install_test:
 	conda install mamba -y -n base
-	mamba create -n enigma_prep_test -c conda-forge mne -y
+	mamba create -n enigma_prep_test -c conda-forge mne datalad -y
 	($(CONDA_ACTIVATE) enigma_prep_test ; pip install -r ./requirements.txt)
 	
 
@@ -24,5 +24,4 @@ install_system_requirements:
 
 test:
 	Xvfb :99 &
-	
 	($(CONDA_ACTIVATE) enigma_prep_test ; pytest)
