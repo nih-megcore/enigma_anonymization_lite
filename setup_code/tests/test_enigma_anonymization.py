@@ -29,7 +29,7 @@ from mne_bids import write_anat, BIDSPath, write_raw_bids
 
 #%% Test data setup
 data_server = os.environ['MEG_DATA_SERVER']
-testdata = f'{data_server}:/home/git/enigma_pre_testdata'
+testdata = f'{data_server}:/home/git/enigma_prep_testdata'
 
 import datalad.api as dl
 dl.clone(testdata, './TEST_DATA')
