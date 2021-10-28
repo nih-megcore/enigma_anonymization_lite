@@ -25,6 +25,7 @@ import shutil
 import matplotlib
 matplotlib.use('Qt5agg'); 
 import matplotlib.pyplot as plt; 
+from multiprocessing import Pool
 
 from mne_bids import write_anat, BIDSPath, write_raw_bids
 
@@ -37,9 +38,9 @@ if shutil.which('recon-all') == None:
 #%% Setup
 n_jobs=6
 line_freq = 60.0
-
 topdir = '/home/namystam/data/enigma_hv'
-# topdir = '/home/stojek/enigma_final'
+
+#%% Configure Working Paths
 os.chdir(topdir)
 
 # Create freesurfer folder
@@ -47,33 +48,16 @@ subjects_dir = f'{topdir}/SUBJECTS_DIR'
 if not os.path.exists(subjects_dir): os.mkdir(subjects_dir)
 os.environ['SUBJECTS_DIR'] = subjects_dir
 
+# Create log directory
+log_dir = f'{topdir}/logs'
+if not os.path.exists(log_dir): os.mkdir(log_dir)
+logger = logging.getLogger()
+fileHandle = logging.FileHandler(f'{log_dir}/process_logger.txt')
+logger.addHandler(fileHandle)
+
 #Directory to save html files
 QA_dir = f'{topdir}/QA'
 if not os.path.exists(QA_dir): os.mkdir(QA_dir)
-
-# Create setup directory with defacing templates
-code_topdir=f'{topdir}/setup_code'
-brain_template=f'{code_topdir}/talairach_mixed_with_skull.gca'
-face_template=f'{code_topdir}/face.gca'
-
-if not op.exists(code_topdir): os.mkdir(code_topdir)
-if not op.exists(f'{code_topdir}/face.gca'):
-    wget.download('https://surfer.nmr.mgh.harvard.edu/pub/dist/mri_deface/face.gca.gz',
-         out=code_topdir)
-    with gzip.open(f'{code_topdir}/face.gca.gz', 'rb') as f_in:
-        with open(f'{code_topdir}/face.gca', 'wb') as f_out:
-            shutil.copyfileobj(f_in, f_out)
-if not op.exists(f'{code_topdir}/talairach_mixed_with_skull.gca'):
-    wget.download('https://surfer.nmr.mgh.harvard.edu/pub/dist/mri_deface/talairach_mixed_with_skull.gca.gz',
-         out=code_topdir)
-    with gzip.open(f'{code_topdir}/talairach_mixed_with_skull.gca.gz', 'rb') as f_in:
-        with open(f'{code_topdir}/talairach_mixed_with_skull.gca', 'wb') as f_out: 
-            shutil.copyfileobj(f_in, f_out)
-
-assert os.path.exists(brain_template)    
-assert os.path.exists(face_template)
-
-#%%
 
 mri_staging_dir = f'{topdir}/mri_staging'
 
@@ -83,7 +67,37 @@ keyword_identifiers={'SUBJID': [],
                      'DATE': [], 
                      'TASK': []}
 
+code_topdir=f'{topdir}/setup_code'
+brain_template=f'{code_topdir}/talairach_mixed_with_skull.gca'
+face_template=f'{code_topdir}/face.gca'
+
 #%% Utility functions
+def download_deface_templates(code_topdir):
+    '''Download and unzip the templates for freesurfer defacing algorithm'''
+    if not op.exists(code_topdir): os.mkdir(code_topdir)
+    if not op.exists(f'{code_topdir}/face.gca'):
+        wget.download('https://surfer.nmr.mgh.harvard.edu/pub/dist/mri_deface/face.gca.gz',
+             out=code_topdir)
+        with gzip.open(f'{code_topdir}/face.gca.gz', 'rb') as f_in:
+            with open(f'{code_topdir}/face.gca', 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+    if not op.exists(f'{code_topdir}/talairach_mixed_with_skull.gca'):
+        wget.download('https://surfer.nmr.mgh.harvard.edu/pub/dist/mri_deface/talairach_mixed_with_skull.gca.gz',
+             out=code_topdir)
+        with gzip.open(f'{code_topdir}/talairach_mixed_with_skull.gca.gz', 'rb') as f_in:
+            with open(f'{code_topdir}/talairach_mixed_with_skull.gca', 'wb') as f_out: 
+                shutil.copyfileobj(f_in, f_out)
+    try:
+        assert os.path.exists(f'{code_topdir}/face.gca')  
+        logger.debug('Face template present')
+    except:
+        logger.error('Face template does not exist')
+    try:
+        assert os.path.exists(f'{code_topdir}/talairach_mixed_with_skull.gca')
+        logger.debug('Talairach mixed template present')
+    except:
+        logger.error('Talairach mixed template does not exist')
+
 def subcommand(function_str):
     from subprocess import check_call
     check_call(function_str.split(' '))
@@ -291,47 +305,7 @@ def _clean_up_all():
             shutil.rmtree(del_i)              
     
 
-#%% Setup dataframe for processing
-meg_template = '/home/stojek/enigma_final/meg/{DATE}/{SUBJID}_{TASK}_{DATE}_??_anon.ds'
-mri_template = '/home/stojek/enigma_final/mris_nii/{SUBJID}/{SUBJID}.nii'
 
-mri_dframe, meg_dframe = return_mri_meg_dframes(mri_template, meg_template)
-        
-meg_dframe['date'] = meg_dframe.full_meg_path.apply(_return_date, key_index=-3 )
-meg_dframe['task'] = meg_dframe.full_meg_path.apply(lambda x: x.split('_')[-4])
-not_rest_idxs = meg_dframe[~meg_dframe['task'].isin(['rest'])].index
-meg_dframe.drop(index=not_rest_idxs, inplace=True)
-
-meg_dframe.sort_values(['meg_subjid','date'])
-meg_dframe = assign_meg_session(meg_dframe)
-
-combined_dframe  = pd.merge(mri_dframe, meg_dframe, left_on='mri_subjid', 
-                            right_on='meg_subjid')
-combined_dframe.reset_index(drop=True, inplace=True)
-
-
-orig_subj_list = combined_dframe['meg_subjid'].unique()
-tmp = np.arange(len(orig_subj_list), dtype=int)
-np.random.shuffle(tmp)  #Change the index for subjids
-
-for rnd_idx, subjid in enumerate(orig_subj_list):
-    print(subjid)
-    print(str(rnd_idx))
-    subjid_idxs = combined_dframe[combined_dframe['meg_subjid']==subjid].index
-    combined_dframe.loc[subjid_idxs,'bids_subjid'] = "sub-{0:0=4d}".format(tmp[rnd_idx])
-
-bids_dir = './bids_out'
-if not os.path.exists(bids_dir): os.mkdir(bids_dir)
-
-if not 'combined_dframe' in locals().keys():
-    combined_dframe = pd.read_csv('MasterList.csv', index_col='Unnamed: 0')
-
-combined_dframe['fs_T1mgz'] = combined_dframe.bids_subjid.apply(lambda x: op.join(subjects_dir, x, 'mri', 'T1.mgz'))
-combined_dframe['report_path'] = combined_dframe.bids_subjid.apply(lambda x: op.join(QA_dir, x+'_report.html'))
-
-dframe=combined_dframe
-dframe['subjects_dir'] = subjects_dir
-assign_report_path(dframe, f'{topdir}/QA')
 
 #%%  Make headsurfaces to confirm alignment and defacing
 # Setup and run freesurfer commands 
@@ -443,21 +417,78 @@ def validate_paths(in_dframe):
                 if not os.path.exists(j):
                     print(f'Does not exists: {j}')
         
-
 def link_surf(subjid=None, subjects_dir=None):
-    # Link files
+    '''Link the surfaces to the BEM dir
+    Looks for lh.seghead and links to bem/outer_skin.surf
+    Tests for broken links and corrects'''
     s_bem_dir = f'{subjects_dir}/{subjid}/bem'
+    src_file = f'{subjects_dir}/{subjid}/surf/lh.seghead'
+    link_path = f'{s_bem_dir}/outer_skin.surf'
     if not os.path.exists(s_bem_dir):
         os.mkdir(s_bem_dir)
-    if not os.path.exists(f'{s_bem_dir}/outer_skin.surf'):
-        src_file = f'{subjects_dir}/{subjid}/surf/lh.seghead'
-        os.symlink(src_file, f'{s_bem_dir}/outer_skin.surf')
+    if not os.path.exists(link_path):
+        os.symlink(src_file, link_path)
+    else:
+        #Test and fix broken symlink
+        if not os.path.exists(os.readlink(link_path)):
+            logger.info(f'Fixed broken link: {link_path}')
+            os.unlink(link_path)
+            os.symlink(src_file, link_path)
+           
+
+
+
+#%% Setup dataframe for processing
+download_deface_templates(code_topdir)
+
+meg_template = '/home/stojek/enigma_final/meg/{DATE}/{SUBJID}_{TASK}_{DATE}_??_anon.ds'
+mri_template = '/home/stojek/enigma_final/mris_nii/{SUBJID}/{SUBJID}.nii'
+
+mri_dframe, meg_dframe = return_mri_meg_dframes(mri_template, meg_template)
+        
+meg_dframe['date'] = meg_dframe.full_meg_path.apply(_return_date, key_index=-3 )
+meg_dframe['task'] = meg_dframe.full_meg_path.apply(lambda x: x.split('_')[-4])
+not_rest_idxs = meg_dframe[~meg_dframe['task'].isin(['rest'])].index
+meg_dframe.drop(index=not_rest_idxs, inplace=True)
+
+meg_dframe.sort_values(['meg_subjid','date'])
+meg_dframe = assign_meg_session(meg_dframe)
+
+combined_dframe  = pd.merge(mri_dframe, meg_dframe, left_on='mri_subjid', 
+                            right_on='meg_subjid')
+combined_dframe.reset_index(drop=True, inplace=True)
+
+
+orig_subj_list = combined_dframe['meg_subjid'].unique()
+tmp = np.arange(len(orig_subj_list), dtype=int)
+np.random.shuffle(tmp)  #Change the index for subjids
+
+for rnd_idx, subjid in enumerate(orig_subj_list):
+    print(subjid)
+    print(str(rnd_idx))
+    subjid_idxs = combined_dframe[combined_dframe['meg_subjid']==subjid].index
+    combined_dframe.loc[subjid_idxs,'bids_subjid'] = "sub-{0:0=4d}".format(tmp[rnd_idx])
+
+bids_dir = './bids_out'
+if not os.path.exists(bids_dir): os.mkdir(bids_dir)
+
+if not 'combined_dframe' in locals().keys():
+    combined_dframe = pd.read_csv('MasterList.csv', index_col='Unnamed: 0')
+
+combined_dframe['fs_T1mgz'] = combined_dframe.bids_subjid.apply(lambda x: op.join(subjects_dir, x, 'mri', 'T1.mgz'))
+combined_dframe['report_path'] = combined_dframe.bids_subjid.apply(lambda x: op.join(QA_dir, x+'_report.html'))
+
+dframe=combined_dframe
+dframe['subjects_dir'] = subjects_dir
+assign_report_path(dframe, f'{topdir}/QA')
+
+
 
 #%% Process Data
 # =============================================================================
 # Make muliprocess calls looped over subjid
 # =============================================================================
-from multiprocessing import Pool
+
 
 # Copy T1 from original location to staging area
 dframe['T1staged'] = ''
@@ -532,21 +563,21 @@ dframe.to_csv('MasterList_final.csv')
 # with Pool(processes=n_jobs) as pool:
 #     pool.starmap(make_QA_report, inframe.values)
   
-
-for idx, row in dframe.iterrows():
-    subjid=row['bids_subjid']
-    subjects_dir=subjects_dir
-    report_path=row['report_path']
-    meg_fname=row['full_meg_path']
-    trans=row['trans_fname']
-    try:
-        make_QA_report(subjid=subjid, 
-                       subjects_dir=subjects_dir, 
-                       report_path=report_path, 
-                       meg_fname=meg_fname, 
-                       trans=trans)
-    except:
-        pass
+def loop_QA_reports(dframe):
+    for idx, row in dframe.iterrows():
+        subjid=row['bids_subjid']
+        subjects_dir=subjects_dir
+        report_path=row['report_path']
+        meg_fname=row['full_meg_path']
+        trans=row['trans_fname']
+        try:
+            make_QA_report(subjid=subjid, 
+                           subjects_dir=subjects_dir, 
+                           report_path=report_path, 
+                           meg_fname=meg_fname, 
+                           trans=trans)
+        except BaseException as e:
+            logger.error(f'make_QA_report: \n{e}')
 
 
 
@@ -571,22 +602,6 @@ combined_dframe = dframe
 # =============================================================================
 # Convert MEG
 # =============================================================================
-# for idx, row in combined_dframe.iterrows():
-#     print(idx)
-#     print(row)
-#     raw_fname = row['meg_fname'] #row.full_meg_path
-#     output_path = bids_dir
-    
-#     raw = read_meg(raw_fname)  
-#     raw.info['line_freq'] = line_freq 
-    
-#     sub = row['bids_subjid'][4:] #Remove sub- prefix from name
-#     ses = '01'
-#     task = 'rest'
-#     run = '01'
-#     bids_path = BIDSPath(subject=sub, session=ses, task=task,
-#                          run=run, root=bids_dir, suffix='meg')
-#     write_raw_bids(raw, bids_path)
     
 errors=[]
 for idx, row in combined_dframe.iterrows():
@@ -647,50 +662,3 @@ for idx, row in dframe.iterrows():
         anat_dir = t1w_bids_path.directory   
     except:
         pass
-
-
-
-# # =============================================================================
-# # TEMP GET RID OF THIS
-# # =============================================================================
-# def make_scalp_surfaces_anon2(mri=None, subjid=None, subjects_dir=None):
-#     '''
-#     Process scalp surfaces for subjid and anon_subjid
-#     Render the coregistration for the subjid
-#     Render the defaced Scalp for the subjid_anon
-#     '''
-#     try: 
-#         anon_subjid = subjid+'_defaced'
-#         prefix, ext = os.path.splitext(mri)
-#         anon_mri = prefix+'_defaced'+ext #os.path.join(prefix+'_defaced'+ext)
-#         print(f'Original:{mri}',f'Processed:{anon_mri}')
-        
-#         # Set subjects dir path for subcommand call
-#         os.environ['SUBJECTS_DIR']=subjects_dir
-        
-#         # proc_tmp = f"mkheadsurf -i {op.join(subjects_dir, subjid, 'mri', 'T1.mgz')} \
-#         #     -o {op.join(subjects_dir, subjid, 'mri', 'seghead.mgz')} \
-#         #     -surf {op.join(subjects_dir, subjid, 'surf', 'lh.smseghead')}"
-#         # proc_tmp = ' '.join(proc_tmp.split())
-        
-#         # subcommand(proc_tmp)
-        
-#         # proc_tmp2 = f"mkheadsurf -i {op.join(subjects_dir, anon_subjid, 'mri', 'T1.mgz')} \
-#         #     -o {op.join(subjects_dir, anon_subjid, 'mri', 'seghead.mgz')} \
-#         #     -surf {op.join(subjects_dir, anon_subjid, 'surf', 'lh.smseghead')}"
-#         # proc_tmp2 = ' '.join(proc_tmp2.split())
-        
-#         # subcommand(proc_tmp2)
-                           
-        
-#         # Cleanup
-#         link_surf(subjid, subjects_dir=subjects_dir)
-#         link_surf(anon_subjid, subjects_dir=subjects_dir)      
-#     except:
-#         pass
-    
-# for idx, row in dframe.iterrows():
-#     trans_fname=op.join('./trans_mats', row['bids_subjid']+'_'+str(int(row['meg_session']))+'-trans.fif')
-#     dframe.loc[idx,'trans_fname']=trans_fname
-
- 
