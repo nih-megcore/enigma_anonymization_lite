@@ -15,12 +15,13 @@ install:
 install_test:
 	conda install mamba -y -n base
 	mamba create -n enigma_prep_test -c conda-forge mne -y
-	($(CONDA_ACTIVATE) enigma_prep_test ; pip install wget datalad pytest)
-	($(CONDA_ACTIVATE) enigma_prep_test ; pip install git+https://github.com/nih-megcore/nih_to_mne)
-	($(CONDA_ACTIVATE) enigma_prep_test ; pip install git+https://github.com/jstout211/enigma_MEG)
+	($(CONDA_ACTIVATE) enigma_prep_test ; pip install -r ./requirements.txt)
 	
 
 install_system_requirements:
 	dnf install Xvfb -y
 
+test:
+	Xvfb :99
 
+	($(CONDA_ACTIVATE) enigma_prep_test ; pytest)
