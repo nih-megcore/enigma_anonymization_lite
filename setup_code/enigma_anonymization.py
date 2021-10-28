@@ -38,7 +38,8 @@ if shutil.which('recon-all') == None:
 n_jobs=6
 line_freq = 60.0
 
-topdir = '/home/stojek/enigma_final'
+topdir = '/home/namystam/data/enigma_hv'
+# topdir = '/home/stojek/enigma_final'
 os.chdir(topdir)
 
 # Create freesurfer folder
@@ -549,8 +550,11 @@ for idx, row in dframe.iterrows():
 
 
 
+# For dry run 
+def make_trans_name(row):
+    return op.join('./trans_mats', row['bids_subjid']+'_'+str(int(row['meg_session']))+'-trans.fif')
 
-
+for idx,row in dframe.iterrows(): dframe.loc[idx,'trans_fname']=make_trans_name(row)
 
 
 
