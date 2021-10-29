@@ -36,9 +36,9 @@ if shutil.which('recon-all') == None:
 
 
 #%% Setup
-n_jobs=6
+n_jobs=12
 line_freq = 60.0
-topdir = '/home/namystam/data/enigma_hv'
+topdir = '/fast/enigma_meg_prep/TEST_DATA'
 
 #%% Configure Working Paths
 os.chdir(topdir)
@@ -427,13 +427,15 @@ def link_surf(subjid=None, subjects_dir=None):
     if not os.path.exists(s_bem_dir):
         os.mkdir(s_bem_dir)
     if not os.path.exists(link_path):
-        os.symlink(src_file, link_path)
-    else:
-        #Test and fix broken symlink
-        if not os.path.exists(os.readlink(link_path)):
-            logger.info(f'Fixed broken link: {link_path}')
-            os.unlink(link_path)
+        try:
             os.symlink(src_file, link_path)
+        except:
+            pass  #If broken symlink - this is fixed below
+    #Test and fix broken symlink
+    if not os.path.exists(os.readlink(link_path)):
+        logger.info(f'Fixed broken link: {link_path}')
+        os.unlink(link_path)
+        os.symlink(src_file, link_path)
            
 
 
@@ -441,13 +443,13 @@ def link_surf(subjid=None, subjects_dir=None):
 #%% Setup dataframe for processing
 download_deface_templates(code_topdir)
 
-meg_template = '/home/stojek/enigma_final/meg/{DATE}/{SUBJID}_{TASK}_{DATE}_??_anon.ds'
-mri_template = '/home/stojek/enigma_final/mris_nii/{SUBJID}/{SUBJID}.nii'
+meg_template = '/fast/enigma_meg_prep/TEST_DATA/MEG/{SUBJID}_{TASK}_{DATE}_??.ds'
+mri_template = '/fast/enigma_meg_prep/TEST_DATA/MRIS_ORIG/{SUBJID}/{SUBJID}.nii'
 
 mri_dframe, meg_dframe = return_mri_meg_dframes(mri_template, meg_template)
         
-meg_dframe['date'] = meg_dframe.full_meg_path.apply(_return_date, key_index=-3 )
-meg_dframe['task'] = meg_dframe.full_meg_path.apply(lambda x: x.split('_')[-4])
+meg_dframe['date'] = meg_dframe.full_meg_path.apply(_return_date, key_index=-2 )
+meg_dframe['task'] = meg_dframe.full_meg_path.apply(lambda x: x.split('_')[-3])
 not_rest_idxs = meg_dframe[~meg_dframe['task'].isin(['rest'])].index
 meg_dframe.drop(index=not_rest_idxs, inplace=True)
 
