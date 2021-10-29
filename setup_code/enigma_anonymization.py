@@ -671,6 +671,7 @@ combined_dframe = dframe
     
 errors=[]
 for idx, row in combined_dframe.iterrows():
+    subj_logger = get_subj_logger(row.bids_subjid)
     try:
         print(idx)
         print(row)
@@ -691,11 +692,12 @@ for idx, row in combined_dframe.iterrows():
         
         write_raw_bids(raw, bids_path)
     except BaseException as e:
-        errors.append(e)
+        subj_logger.error('MEG BIDS PROCESSING:', e)
         
 
 #%% Create the bids from the anonymized MRI
 for idx, row in dframe.iterrows():
+    subj_logger = get_subj_logger(row.bids_subjid)
     try:
         sub=row['bids_subjid'][4:] 
         ses='01'
@@ -726,5 +728,5 @@ for idx, row in dframe.iterrows():
             )
         
         anat_dir = t1w_bids_path.directory   
-    except:
-        pass
+    except BaseException as e:
+        subj_logger.error('MRI BIDS PROCESSING', e)
