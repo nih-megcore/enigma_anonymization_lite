@@ -29,6 +29,7 @@ from multiprocessing import Pool
 
 from mne_bids import write_anat, BIDSPath, write_raw_bids
 
+
 #%%  Confirm softare version
 assert mne_bids.__version__[0:3]>='0.8'
 if shutil.which('recon-all') == None:
@@ -38,6 +39,7 @@ if shutil.which('recon-all') == None:
 #%% Setup
 n_jobs=12
 line_freq = 60.0
+global topdir
 topdir = '/fast/enigma_meg_prep/TEST_DATA'
 
 #%% Configure Working Paths
@@ -49,11 +51,16 @@ if not os.path.exists(subjects_dir): os.mkdir(subjects_dir)
 os.environ['SUBJECTS_DIR'] = subjects_dir
 
 # Create log directory
+global log_dir
 log_dir = f'{topdir}/logs'
 if not os.path.exists(log_dir): os.mkdir(log_dir)
+
+logging.basicConfig(filename=f'{log_dir}/process_logger.txt',
+                    format='%(asctime)s - %(levelname)s - %(message)s', 
+                    level=logging.INFO)
 logger = logging.getLogger()
-fileHandle = logging.FileHandler(f'{log_dir}/process_logger.txt')
-logger.addHandler(fileHandle)
+# fileHandle = logging.FileHandler(f'{log_dir}/process_logger.txt')
+# logger.addHandler(fileHandle)
 
 #Directory to save html files
 QA_dir = f'{topdir}/QA'
@@ -437,7 +444,15 @@ def link_surf(subjid=None, subjects_dir=None):
         os.unlink(link_path)
         os.symlink(src_file, link_path)
            
-
+def get_subj_logger(subjid):
+    '''Return the subject specific logger.
+    This is particularly useful in the multiprocessing where logging is not
+    necessarily in order'''
+    log_dir = f'{topdir}/logs'
+    logger = logging.getLogger(subjid)
+    fileHandle = logging.FileHandler(f'{log_dir}/{subjid}_log.txt')
+    logger.addHandler(fileHandle)
+    return logger
 
 
 #%% Setup dataframe for processing
