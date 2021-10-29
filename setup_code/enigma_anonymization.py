@@ -46,6 +46,7 @@ topdir = '/fast/enigma_meg_prep/TEST_DATA'
 os.chdir(topdir)
 
 # Create freesurfer folder
+global subjects_dir
 subjects_dir = f'{topdir}/SUBJECTS_DIR'
 if not os.path.exists(subjects_dir): os.mkdir(subjects_dir)
 os.environ['SUBJECTS_DIR'] = subjects_dir
@@ -325,83 +326,114 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None):
     '''
     anon_subjid = subjid+'_defaced'
     prefix, ext = os.path.splitext(mri)
-    anon_mri = prefix+'_defaced'+ext #os.path.join(prefix+'_defaced'+ext)
-    print(f'Original:{mri}',f'Processed:{anon_mri}')
+    anon_mri = prefix+'_defaced'+ext 
+    subj_logger=get_subj_logger(subjid)
+    subj_logger.info(f'Original:{mri}',f'Processed:{anon_mri}')
     
     # Set subjects dir path for subcommand call
     os.environ['SUBJECTS_DIR']=subjects_dir
     
     try: 
         subcommand(f'mri_deface {mri} {brain_template} {face_template} {anon_mri}')
-    except:
-        pass
+    except BaseException as e:
+        subj_logger.error('MRI_DEFACE')
+        subj_logger.error(e)
     
     try:
-        proc_o = [f'recon-all -i {mri} -s {subjid}',
-                f'recon-all -autorecon1 -noskullstrip -s {subjid}',
-                ]
-        proc_tmp = f"mkheadsurf -i {op.join(subjects_dir, subjid, 'mri', 'T1.mgz')} \
-            -o {op.join(subjects_dir, subjid, 'mri', 'seghead.mgz')} \
-            -surf {op.join(subjects_dir, subjid, 'surf', 'lh.seghead')}"
-        proc_tmp = ' '.join(proc_tmp.split()) #Remove extra whitespace                          
-        proc_o.append(proc_tmp)
+        subprocess.run(f'recon-all -i {mri} -s {subjid}'.split())
+        subprocess.run(f'recon-all -autorecon1 -noskullstrip -s {subjid}'.split())
+        subj_logger.info('RECON_ALL IMPORT FINISHED')
+    except BaseException as e:
+        subj_logger.error('RECON_ALL IMPORT')
+        subj_logger.error(e)
+    
+    try:
+        subprocess.run(f"mkheadsurf -s {subjid}".split())
+        subj_logger.info('MKHEADSURF FINISHED')
+    except BaseException as e:
+        subj_logger.error('MKHEADSURF')
+        subj_logger.error(e)
+    
+    # =========================================================================
+    #     Repeat for defaced
+    # =========================================================================
 
-        for proc in proc_o:
-            subcommand(proc)    
-    except:
-        pass
+    try:
+        subprocess.run(f'recon-all -i {anon_mri} -s {subjid}_defaced'.split())
+        subprocess.run(f'recon-all -autorecon1 -noskullstrip -s {subjid}_defaced'.split())
+        subj_logger.info('RECON_ALL IMPORT (ANON) FINISHED')
+    except BaseException as e:
+        subj_logger.error('RECON_ALL IMPORT (ANON)')
+        subj_logger.error(e)
     
     try:
-        # Process anonymized head surface
-        proc_a = [
-                f'recon-all -i {anon_mri} -s {anon_subjid}',
-                f'recon-all -autorecon1 -noskullstrip -s {anon_subjid}',
-                ]
-        proc_a_tmp = f"mkheadsurf -i {op.join(subjects_dir, anon_subjid, 'mri', 'T1.mgz')} \
-            -o {op.join(subjects_dir, anon_subjid, 'mri', 'seghead.mgz')} \
-            -surf {op.join(subjects_dir, anon_subjid, 'surf', 'lh.seghead')}"
-        proc_a_tmp = ' '.join(proc_a_tmp.split()) #Remove extra whitespace       
-        proc_a.append(proc_a_tmp)
-        for proc in proc_a:
-            subcommand(proc)
-    except:
-        pass
-    
+        subprocess.run(f"mkheadsurf -s {subjid}_defaced".split())
+        subj_logger.info('MKHEADSURF (ANON) FINISHED')
+    except BaseException as e:
+        subj_logger.error('MKHEADSURF (ANON)')
+        subj_logger.error(e)        
+        
     try:
         # Cleanup
         link_surf(subjid, subjects_dir=subjects_dir)
         link_surf(anon_subjid, subjects_dir=subjects_dir)      
     except:
-        pass
+        pass        
+        
+        
+        
+        
+        
+
+    
+    # try:
+    #     # Process anonymized head surface
+    #     proc_a = [
+    #             f'recon-all -i {anon_mri} -s {anon_subjid}',
+    #             f'recon-all -autorecon1 -noskullstrip -s {anon_subjid}',
+    #             ]
+    #     proc_a_tmp = f"mkheadsurf -i {op.join(subjects_dir, anon_subjid, 'mri', 'T1.mgz')} \
+    #         -o {op.join(subjects_dir, anon_subjid, 'mri', 'seghead.mgz')} \
+    #         -surf {op.join(subjects_dir, anon_subjid, 'surf', 'lh.seghead')}"
+    #     proc_a_tmp = ' '.join(proc_a_tmp.split()) #Remove extra whitespace       
+    #     proc_a.append(proc_a_tmp)
+    #     for proc in proc_a:
+    #         subcommand(proc)
+    # except BaseException as e:
+    #     subj_logger.error(e)
+    
+    # try:
+    #     # Cleanup
+    #     link_surf(subjid, subjects_dir=subjects_dir)
+    #     link_surf(anon_subjid, subjects_dir=subjects_dir)      
+    # except:
+    #     pass
 
 def make_QA_report(subjid=None, subjects_dir=None, 
                  report_path=None, meg_fname=None, trans=None):
-    try:
-        anon_subjid = subjid+'_defaced'
-        
-        if meg_fname is not None:
-            raw = read_meg(meg_fname)
-        
-        # Make Report    
-        rep = mne.Report()
-        null_info = mne.Info({'dig':raw.info['dig'], 'dev_ctf_t': raw.info['dev_ctf_t'], 
-                              'dev_head_t': raw.info['dev_head_t'], 'bads':[],
-                              'chs':[], 'ch_names':[], 'nchan':0})
-        tmp = mne.viz.plot_alignment(info=null_info, subject=subjid, subjects_dir=subjects_dir, 
-                                 trans=trans, dig=True)  
-        rep.add_figs_to_section(figs=tmp, captions='Fiducials',
-                                        section='Coregistration')        
-        
-        tmp = mne.viz.plot_alignment(info=raw.info, subject=subjid, subjects_dir=subjects_dir, 
-                                 trans=trans, dig=True, coord_frame='meg')    
-        rep.add_figs_to_section(figs=tmp, captions='Head Alignment',
-                                        section='Coregistration')
-        tmp = mne.viz.plot_alignment(subject=anon_subjid)
-        rep.add_figs_to_section(figs=tmp, captions='Deface Confirmation',
-                                        section='Anonymization')    
-        rep.save(fname=report_path)
-    except:
-        print(f'error {subjid}')
+    anon_subjid = subjid+'_defaced'
+    
+    if meg_fname is not None:
+        raw = read_meg(meg_fname)
+    
+    # Make Report    
+    rep = mne.Report()
+    null_info = mne.Info({'dig':raw.info['dig'], 'dev_ctf_t': raw.info['dev_ctf_t'], 
+                          'dev_head_t': raw.info['dev_head_t'], 'bads':[],
+                          'chs':[], 'ch_names':[], 'nchan':0})
+    tmp = mne.viz.plot_alignment(info=null_info, subject=subjid, subjects_dir=subjects_dir, 
+                             trans=trans, dig=True)  
+    rep.add_figs_to_section(figs=tmp, captions='Fiducials',
+                                    section='Coregistration')        
+    
+    tmp = mne.viz.plot_alignment(info=raw.info, subject=subjid, subjects_dir=subjects_dir, 
+                             trans=trans, dig=True, coord_frame='meg')    
+    rep.add_figs_to_section(figs=tmp, captions='Head Alignment',
+                                    section='Coregistration')
+    tmp = mne.viz.plot_alignment(subject=anon_subjid)
+    rep.add_figs_to_section(figs=tmp, captions='Deface Confirmation',
+                                    section='Anonymization')    
+    rep.save(fname=report_path)
 
 def test_make_QA_report():
     row = dframe.loc[2]
@@ -457,10 +489,16 @@ def get_subj_logger(subjid):
             return logger
     fileHandle = logging.FileHandler(f'{log_dir}/{subjid}_log.txt')
     fmt = logging.Formatter(fmt=f'%(asctime)s - %(levelname)s - {subjid} - %(message)s')
-    fileHandle.setFormatter(fmt=fmt) #'%(asctime)s - %(levelname)s - %(subjid) - %(message)s')
+    fileHandle.setFormatter(fmt=fmt) 
     logger.addHandler(fileHandle)
     return logger
 
+
+
+
+# proc = subprocess.run('mkheadsurf --help'.split(), stdout=subprocess.PIPE)
+# outs = proc.stdout.decode().split('\n')
+# if '-s' in outs[outs.index('Required Arguments:')+1]:
 
 
 #%% Setup dataframe for processing
@@ -588,23 +626,26 @@ dframe.to_csv('MasterList_final.csv')
 # with Pool(processes=n_jobs) as pool:
 #     pool.starmap(make_QA_report, inframe.values)
   
-def loop_QA_reports(dframe):
+def loop_QA_reports(dframe, subjects_dir=None):
     for idx, row in dframe.iterrows():
         subjid=row['bids_subjid']
         subjects_dir=subjects_dir
         report_path=row['report_path']
         meg_fname=row['full_meg_path']
         trans=row['trans_fname']
+        subj_logger=get_subj_logger(subjid)
         try:
+            subj_logger.info('Running QA report')
             make_QA_report(subjid=subjid, 
                            subjects_dir=subjects_dir, 
                            report_path=report_path, 
                            meg_fname=meg_fname, 
                            trans=trans)
+            subj_logger.info('Finished QA report')
         except BaseException as e:
-            logger.error(f'make_QA_report: \n{e}')
+            subj_logger.error(f'make_QA_report: \n{e}')
 
-
+loop_QA_reports(dframe, subjects_dir=subjects_dir)
 
 # For dry run 
 def make_trans_name(row):
