@@ -450,9 +450,17 @@ def get_subj_logger(subjid):
     necessarily in order'''
     log_dir = f'{topdir}/logs'
     logger = logging.getLogger(subjid)
+    if logger.handlers != []:
+        # Check to make sure that more than one file handler is not added
+        tmp_ = [type(i) for i in logger.handlers ]
+        if logging.FileHandler in tmp_:
+            return logger
     fileHandle = logging.FileHandler(f'{log_dir}/{subjid}_log.txt')
+    fmt = logging.Formatter(fmt=f'%(asctime)s - %(levelname)s - {subjid} - %(message)s')
+    fileHandle.setFormatter(fmt=fmt) #'%(asctime)s - %(levelname)s - %(subjid) - %(message)s')
     logger.addHandler(fileHandle)
     return logger
+
 
 
 #%% Setup dataframe for processing
