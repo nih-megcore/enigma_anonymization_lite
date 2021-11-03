@@ -385,29 +385,7 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None):
         
         
 
-    
-    # try:
-    #     # Process anonymized head surface
-    #     proc_a = [
-    #             f'recon-all -i {anon_mri} -s {anon_subjid}',
-    #             f'recon-all -autorecon1 -noskullstrip -s {anon_subjid}',
-    #             ]
-    #     proc_a_tmp = f"mkheadsurf -i {op.join(subjects_dir, anon_subjid, 'mri', 'T1.mgz')} \
-    #         -o {op.join(subjects_dir, anon_subjid, 'mri', 'seghead.mgz')} \
-    #         -surf {op.join(subjects_dir, anon_subjid, 'surf', 'lh.seghead')}"
-    #     proc_a_tmp = ' '.join(proc_a_tmp.split()) #Remove extra whitespace       
-    #     proc_a.append(proc_a_tmp)
-    #     for proc in proc_a:
-    #         subcommand(proc)
-    # except BaseException as e:
-    #     subj_logger.error(e)
-    
-    # try:
-    #     # Cleanup
-    #     link_surf(subjid, subjects_dir=subjects_dir)
-    #     link_surf(anon_subjid, subjects_dir=subjects_dir)      
-    # except:
-    #     pass
+
 
 def make_QA_report(subjid=None, subjects_dir=None, 
                  report_path=None, meg_fname=None, trans=None):
@@ -435,18 +413,18 @@ def make_QA_report(subjid=None, subjects_dir=None,
                                     section='Anonymization')    
     rep.save(fname=report_path)
 
-def test_make_QA_report():
-    row = dframe.loc[2]
-    subjid=row['bids_subjid']
-    subjects_dir=subjects_dir
-    report_path=row['report_path']
-    meg_fname=row['full_meg_path']
-    trans=row['trans_fname']
-    make_QA_report(subjid=subjid, 
-                   subjects_dir=subjects_dir, 
-                   report_path=report_path, 
-                   meg_fname=meg_fname, 
-                   trans=trans)
+# def test_make_QA_report():
+#     row = dframe.loc[2]
+#     subjid=row['bids_subjid']
+#     subjects_dir=subjects_dir
+#     report_path=row['report_path']
+#     meg_fname=row['full_meg_path']
+#     trans=row['trans_fname']
+#     make_QA_report(subjid=subjid, 
+#                    subjects_dir=subjects_dir, 
+#                    report_path=report_path, 
+#                    meg_fname=meg_fname, 
+#                    trans=trans)
     
     
 def validate_paths(in_dframe):
@@ -493,12 +471,6 @@ def get_subj_logger(subjid):
     logger.addHandler(fileHandle)
     return logger
 
-
-
-
-# proc = subprocess.run('mkheadsurf --help'.split(), stdout=subprocess.PIPE)
-# outs = proc.stdout.decode().split('\n')
-# if '-s' in outs[outs.index('Required Arguments:')+1]:
 
 
 #%% Setup dataframe for processing
@@ -549,7 +521,7 @@ assign_report_path(dframe, f'{topdir}/QA')
 
 #%% Process Data
 # =============================================================================
-# Make muliprocess calls looped over subjid
+# Make multiprocess calls looped over subjid
 # =============================================================================
 
 
@@ -602,7 +574,8 @@ for idx, row in dframe.iterrows():
     try:
         write_mne_fiducials(subject=row['bids_subjid'],
                             subjects_dir=subjects_dir, 
-                            afni_fname=afni_fname,
+                            # afni_fname=afni_fname,
+                            searchpath = os.path.dirname(afni_fname),
                             output_fid_path=fid_path)
     except:
         print('error '+row['bids_subjid'])
@@ -703,7 +676,7 @@ for idx, row in dframe.iterrows():
         ses='01'
         output_path = f'{topdir}/bids_out'
         
-        raw = read_meg(row['meg_fname'])          #FIX currently should be full_meg_path - need to verify anon
+        raw = read_meg(row['full_meg_path'])          #FIX currently should be full_meg_path - need to verify anon
         trans = mne.read_trans(row['trans_fname'])
         t1_path = row['T1anon']
         
