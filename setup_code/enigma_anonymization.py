@@ -353,9 +353,16 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None):
     try:
         subprocess.run(f"mkheadsurf -s {subjid}".split(), check=True)
         subj_logger.info('MKHEADSURF FINISHED')
-    except BaseException as e:
-        subj_logger.error('MKHEADSURF')
-        subj_logger.error(e)
+    except:
+        try:
+            proc_cmd = f"mkheadsurf -i {op.join(subjects_dir, subjid, 'mri', 'T1.mgz')} \
+                -o {op.join(subjects_dir, subjid, 'mri', 'seghead.mgz')} \
+                -surf {op.join(subjects_dir, subjid, 'surf', 'lh.seghead')}"
+            subprocess.run(proc_cmd.split(), check=True)
+        except BaseException as e:
+            subj_logger.error('MKHEADSURF')
+            subj_logger.error(e)
+
     
     # =========================================================================
     #     Repeat for defaced
@@ -374,9 +381,19 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None):
     try:
         subprocess.run(f"mkheadsurf -s {subjid}_defaced".split(), check=True)
         subj_logger.info('MKHEADSURF (ANON) FINISHED')
-    except BaseException as e:
-        subj_logger.error('MKHEADSURF (ANON)')
-        subj_logger.error(e)        
+    except:
+        try:
+            proc_cmd = f"mkheadsurf -i {op.join(subjects_dir, anon_subjid, 'mri', 'T1.mgz')} \
+                -o {op.join(subjects_dir, anon_subjid, 'mri', 'seghead.mgz')} \
+                -surf {op.join(subjects_dir, anon_subjid, 'surf', 'lh.seghead')}"
+            subprocess.run(proc_cmd.split(), check=True)
+        except BaseException as e:
+            subj_logger.error('MKHEADSURF')
+            subj_logger.error(e)    
+        
+    # except BaseException as e:
+    #     subj_logger.error('MKHEADSURF (ANON)')
+    #     subj_logger.error(e)        
         
     try:
         # Cleanup
