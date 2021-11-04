@@ -28,12 +28,17 @@ import matplotlib.pyplot as plt;
 from mne_bids import write_anat, BIDSPath, write_raw_bids
 
 #%% Test data setup
-data_server = os.environ['MEG_DATA_SERVER']
-testdata = f'{data_server}:/home/git/enigma_prep_testdata'
+# data_server = os.environ['MEG_DATA_SERVER']
+# testdata = f'{data_server}:/home/git/enigma_prep_testdata'
 
-import datalad.api as dl
-dl.clone(testdata, './TEST_DATA')
-dl.get('./TEST_DATA')
+# import datalad.api as dl
+# dl.clone(testdata, './TEST_DATA')
+# dl.get('./TEST_DATA')
+
+global topdir
+#HACK 
+topdir = op.join(op.dirname(op.dirname(op.dirname(__file__))), 'TEST_DATA') 
+os.chdir(topdir)
 
 
 #%%  Confirm softare version
@@ -45,10 +50,6 @@ if shutil.which('recon-all') == None:
 #%% Setup
 n_jobs=6
 line_freq = 60.0
-
-topdir = '/fast/enigma_prep2'
-# topdir = '/home/stojek/enigma_final'
-os.chdir(topdir)
 
 # Create freesurfer folder
 subjects_dir = f'{topdir}/SUBJECTS_DIR'
