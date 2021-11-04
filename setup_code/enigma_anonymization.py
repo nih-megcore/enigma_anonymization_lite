@@ -498,8 +498,8 @@ def get_subj_logger(subjid):
 #%% Setup dataframe for processing
 download_deface_templates(code_topdir)
 
-meg_template = '/fast/enigma_meg_prep/TEST_DATA/MEG/{SUBJID}_{TASK}_{DATE}_??.ds'
-mri_template = '/fast/enigma_meg_prep/TEST_DATA/MRIS_ORIG/{SUBJID}/{SUBJID}.nii'
+meg_template = op.join(topdir, 'MEG/{SUBJID}_{TASK}_{DATE}_??.ds')
+mri_template = op.join(topdir, 'MRIS_ORIG/{SUBJID}/{SUBJID}.nii')
 
 mri_dframe, meg_dframe = return_mri_meg_dframes(mri_template, meg_template)
         
