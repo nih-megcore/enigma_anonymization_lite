@@ -334,21 +334,24 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None):
     os.environ['SUBJECTS_DIR']=subjects_dir
     
     try: 
-        subcommand(f'mri_deface {mri} {brain_template} {face_template} {anon_mri}')
+        subprocess.run(f'mri_deface {mri} {brain_template} {face_template} {anon_mri}'.split(),
+                       check=True)
     except BaseException as e:
         subj_logger.error('MRI_DEFACE')
         subj_logger.error(e)
     
     try:
-        subprocess.run(f'recon-all -i {mri} -s {subjid}'.split())
-        subprocess.run(f'recon-all -autorecon1 -noskullstrip -s {subjid}'.split())
+        subprocess.run(f'recon-all -i {mri} -s {subjid}'.split(),
+                       check=True)
+        subprocess.run(f'recon-all -autorecon1 -noskullstrip -s {subjid}'.split(),
+                       check=True)
         subj_logger.info('RECON_ALL IMPORT FINISHED')
     except BaseException as e:
         subj_logger.error('RECON_ALL IMPORT')
         subj_logger.error(e)
     
     try:
-        subprocess.run(f"mkheadsurf -s {subjid}".split())
+        subprocess.run(f"mkheadsurf -s {subjid}".split(), check=True)
         subj_logger.info('MKHEADSURF FINISHED')
     except BaseException as e:
         subj_logger.error('MKHEADSURF')
@@ -359,15 +362,17 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None):
     # =========================================================================
 
     try:
-        subprocess.run(f'recon-all -i {anon_mri} -s {subjid}_defaced'.split())
-        subprocess.run(f'recon-all -autorecon1 -noskullstrip -s {subjid}_defaced'.split())
+        subprocess.run(f'recon-all -i {anon_mri} -s {subjid}_defaced'.split(),
+                       check=True)
+        subprocess.run(f'recon-all -autorecon1 -noskullstrip -s {subjid}_defaced'.split(),
+                       check=True)
         subj_logger.info('RECON_ALL IMPORT (ANON) FINISHED')
     except BaseException as e:
         subj_logger.error('RECON_ALL IMPORT (ANON)')
         subj_logger.error(e)
     
     try:
-        subprocess.run(f"mkheadsurf -s {subjid}_defaced".split())
+        subprocess.run(f"mkheadsurf -s {subjid}_defaced".split(), check=True)
         subj_logger.info('MKHEADSURF (ANON) FINISHED')
     except BaseException as e:
         subj_logger.error('MKHEADSURF (ANON)')
