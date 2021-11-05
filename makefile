@@ -23,4 +23,4 @@ install_system_requirements:
 	dnf install git git-annex -y
 
 test:
-	($(CONDA_ACTIVATE) enigma_prep_test ; xvfb-run -a pytest)
+	($(CONDA_ACTIVATE) enigma_prep_test ; xvfb-run -a pytest -s )
