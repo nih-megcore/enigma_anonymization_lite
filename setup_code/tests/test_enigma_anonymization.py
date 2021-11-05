@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt;
 from multiprocessing import Pool
 
 from mne_bids import write_anat, BIDSPath, write_raw_bids
-
+os.environ['MNE_3D_OPTION_ANTIALIAS']='false'
 
 #%%  Confirm softare version
 assert mne_bids.__version__[0:3]>='0.8'
