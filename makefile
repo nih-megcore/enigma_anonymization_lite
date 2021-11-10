@@ -7,14 +7,14 @@ CONDA_ACTIVATE=source $$(conda info --base)/etc/profile.d/conda.sh ; conda activ
 # <<<<
 
 install:
-	conda install -c conda-forge mne -n enigma_meg_prep
+	conda install -c conda-forge mne==0.23 -n enigma_meg_prep
 	pip install wget
 	pip install git+https://github.com/nih-megcore/nih_to_mne
 
 	
 install_test:
 	conda install mamba -y -n base
-	mamba create -n enigma_prep_test -c conda-forge mne datalad -y
+	mamba create -n enigma_prep_test -c conda-forge mne==0.23 datalad -y
 	($(CONDA_ACTIVATE) enigma_prep_test ; pip install -r ./requirements.txt)
 	
 
