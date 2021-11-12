@@ -20,6 +20,7 @@ setuptools.setup(
     ],
     python_requires='>=3.6',
     install_requires=['mne==0.23', 'mne_bids', 'joblib', 'nibabel', 
-        'nih2mne @ git+https://github.com/nih-megcore/nih_to_mne@v0.2#egg'], 
+        'nih2mne @ git+https://github.com/nih-megcore/nih_to_mne@master',
+        'enigma @ git+https://github.com/jstout211/enigma_MEG@master' ], 
     scripts=['setup_code/process_anonymization.py'],
 )
