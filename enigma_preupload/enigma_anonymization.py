@@ -80,6 +80,29 @@ def assign_report_path(dframe, QAdir='./QA'):
         QA_fname = op.join(QAdir, f'{subjid}_sess_{session}.html')
         dframe.loc[idx,'report_path']=QA_fname
         
+def _dframe_from_template(template, keyword_identifiers, datatype=None):
+    key_indices = split_names(template, keyword_identifiers)
+    subjid_from_dir=_proc_steps(template)
+    for key in key_indices.keys():
+        template = template.replace('{'+key+'}', '*')
+    _inputs = glob.glob(template)
+    _dframe = pd.DataFrame(_inputs, columns=['full_path'])
+    
+    if subjid_from_dir:
+        _dframe[f'{datatype}_subjid']=\
+            _dframe.full_path.apply(dir_at_pos, 
+                                           position=key_indices['SUBJID'][-1])
+    else:
+        _dframe[f'{datatype}_subjid']=\
+            _dframe.full_path.apply(subjid_from_filename)
+    
+    _dframe.rename(columns={'full_path':f'full_{datatype}_path'}, inplace=True)
+    return _dframe
+    
+
+        
+
+
 def return_mri_meg_dframes(mri_template, meg_template):
     meg_rest_dataset = meg_template 
     mri_dataset = mri_template 

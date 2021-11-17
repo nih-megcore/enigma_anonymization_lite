@@ -27,6 +27,7 @@ import matplotlib.pyplot as plt;
 from multiprocessing import Pool
 
 from mne_bids import write_anat, BIDSPath, write_raw_bids
+from enigma_preupload.enigma_anonymization import download_deface_templates
 
 #%%
 #%%  Confirm softare version
@@ -68,6 +69,7 @@ if not os.path.exists(QA_dir): os.mkdir(QA_dir)
 
 mri_staging_dir = f'{topdir}/mri_staging'
 
+global keyword_identifiers
 keyword_identifiers={'SUBJID': [],
                      'SUBJID_first': [], 
                      'SUBJID_last': [],
@@ -79,10 +81,36 @@ brain_template=f'{code_topdir}/talairach_mixed_with_skull.gca'
 face_template=f'{code_topdir}/face.gca'
 
 #%%
-from .enigma_anonymization import download_deface_templates
 download_deface_templates(code_topdir)
 
-# meg_template = op.join(topdir, 'MEG/{SUBJID}_{TASK}_{DATE}_??.ds')
+def datatype_from_template(topdir=None, interactive=True, template=None, 
+                      datatype=None):
+    '''Generate a CSV of MEG datasets found by searching through a defined
+    template prompted at runtime'''
+    prompt_val='''
+        Provide a template to search for MEG datasets using specific keywords:
+        
+        subject - SUBJID, SUBJID_first, SUBJID_last
+        date - DATE
+        task - TASK  (currently only supporting resting datasets)
+        
+        Examples:
+            /home/myusername/data/MEG/{SUBJID}_{TASK}_{DATE}_??.ds
+            
+            /data/MEG/{SUBJID}/Run??_{TASK}_{DATE}_raw.fif
+        '''
+    if interactive==True:
+        template = input(prompt_val)
+    from enigma_preupload.enigma_anonymization import _dframe_from_template
+    dframe = _dframe_from_template(template, keyword_identifiers, 
+                                   datatype=datatype.lower())
+    print(dframe.head())           
+    
+    
+    
+    #meg_template = op.join(topdir, 'MEG/{SUBJID}_{TASK}_{DATE}_??.ds')    
+    
+
 # mri_template = op.join(topdir, 'MRIS_ORIG/{SUBJID}/{SUBJID}.nii')
 
 # mri_dframe, meg_dframe = return_mri_meg_dframes(mri_template, meg_template)
@@ -318,14 +346,14 @@ if __name__=='__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('-topdir', help='''The directory for the outputs''')
-    parser.add_argument('-search_meg', help='''Interactively search for MEG 
+    parser.add_argument('-search_datatype', help='''Interactively search for MEG 
                         datasets using a prompted template path.  After 
                         confirmation a dataframe will be written out in the 
                         form of a CSV file that can be QA-ed for errors.''') 
-    parser.add_argument('-search_mri', help='''Interactively search for MRI 
-                        datasets using a prompted template path.  After 
-                        confirmation a dataframe will be written out in the 
-                        form of a CSV file that can be QA-ed for errors.''')                        
+    # parser.add_argument('-search_mri', help='''Interactively search for MRI 
+    #                     datasets using a prompted template path.  After 
+    #                     confirmation a dataframe will be written out in the 
+    #                     form of a CSV file that can be QA-ed for errors.''')                        
                         
                         
     # parser.add_argument('-subjid', help='''Define subjects id (folder name)
@@ -346,12 +374,16 @@ if __name__=='__main__':
                         False to batch process''', default=True)
     parser.description='''Processing for the anatomical inputs of the enigma pipeline'''
     args = parser.parse_args()
-    if not args.subjid: raise ValueError('Subject ID must be set')
-    if not args.subjects_dir: 
-        args.subjects_dir=os.environ['SUBJECTS_DIR']
-    else:
-        os.environ['SUBJECTS_DIR']=args.subjects_dir  
-    
+    # if not args.subjid: raise ValueError('Subject ID must be set')
+    # if not args.subjects_dir: 
+    #     args.subjects_dir=os.environ['SUBJECTS_DIR']
+    # else:
+    #     os.environ['SUBJECTS_DIR']=args.subjects_dir  
+    if args.search_datatype:
+        datatype_from_template(topdir=args.topdir, 
+                               interactive=args.interactive,
+                               datatype=args.search_datatype)
+        
 
 
         
