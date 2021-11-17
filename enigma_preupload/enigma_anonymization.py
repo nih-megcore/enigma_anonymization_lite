@@ -99,49 +99,6 @@ def _dframe_from_template(template, keyword_identifiers, datatype=None):
     _dframe.rename(columns={'full_path':f'full_{datatype}_path'}, inplace=True)
     return _dframe
     
-
-        
-
-
-def return_mri_meg_dframes(mri_template, meg_template):
-    meg_rest_dataset = meg_template 
-    mri_dataset = mri_template 
-
-    mri_key_indices=split_names(mri_dataset, keyword_identifiers)
-    meg_key_indices=split_names(meg_rest_dataset, keyword_identifiers)
-    
-    mri_subjid_from_dir=_proc_steps(mri_dataset) 
-    meg_subjid_from_dir = _proc_steps(meg_rest_dataset)
-    
-    for key in mri_key_indices.keys():
-        mri_dataset = mri_dataset.replace('{'+key+'}', '*')
-    for key in meg_key_indices.keys():
-        meg_rest_dataset = meg_rest_dataset.replace('{'+key+'}', '*')
-        
-    mri_inputs = glob.glob(mri_dataset)
-    meg_inputs = glob.glob(meg_rest_dataset)
-    
-    meg_dframe = pd.DataFrame(meg_inputs, columns=['full_meg_path'])
-    mri_dframe = pd.DataFrame(mri_inputs, columns=['full_mri_path'])
-    
-    if meg_subjid_from_dir:
-        meg_dframe['meg_subjid']=\
-            meg_dframe.full_meg_path.apply(dir_at_pos, 
-                                           position=meg_key_indices['SUBJID'][-1])
-    else:
-        meg_dframe['meg_subjid']=\
-            meg_dframe.full_meg_path.apply(subjid_from_filename)
-        
-    if mri_subjid_from_dir:
-        mri_dframe['mri_subjid']=\
-            mri_dframe.full_mri_path.apply(dir_at_pos, 
-                                           position=mri_key_indices['SUBJID'][-1])
-    else:
-        mri_dframe['mri_subjid']=\
-            mri_dframe.full_mri_path.apply(subjid_from_filename)
-            
-    return mri_dframe, meg_dframe
-
 # =============================================================================
 # Convenience Functions
 # =============================================================================

@@ -28,6 +28,7 @@ from multiprocessing import Pool
 
 from mne_bids import write_anat, BIDSPath, write_raw_bids
 from enigma_preupload.enigma_anonymization import download_deface_templates
+from enigma_preupload.enigma_anonymization import _dframe_from_template
 
 #%%
 #%%  Confirm softare version
@@ -99,14 +100,38 @@ def datatype_from_template(topdir=None, interactive=True, template=None,
             
             /data/MEG/{SUBJID}/Run??_{TASK}_{DATE}_raw.fif
         '''
+    rel_out_fname = f'{datatype}_dframe.csv'
+    logger=logging.getLogger()
     if interactive==True:
-        template = input(prompt_val)
-    from enigma_preupload.enigma_anonymization import _dframe_from_template
-    dframe = _dframe_from_template(template, keyword_identifiers, 
+        save_output='n'
+        while save_output.lower() not in ['y','q', 'yes', 'quit']:
+            template = input(prompt_val)
+            dframe = _dframe_from_template(template, keyword_identifiers, 
                                    datatype=datatype.lower())
-    print(dframe.head())           
+            print(dframe.head())
+            save_output=input('Does this look correct?(y)es, (n)o, (q)uit')
+        if save_output.lower() in ['y','yes']:
+            if topdir!=None:
+                out_fname = op.join(topdir, rel_out_fname)
+            else:
+                out_fname = rel_out_fname
+            dframe.to_csv(out_fname, index=False)
+            logger.info(f'Saved {datatype} dataframe: {out_fname}')
+    if interactive!=True:
+        dframe = _dframe_from_template(template, keyword_identifiers, 
+                               datatype=datatype.lower()) 
+        if topdir!=None:
+            out_fname = op.join(topdir, rel_out_fname)
+        else:
+            out_fname = rel_out_fname
+        dframe.to_csv(out_fname, index=False)
+        logger.info(f'Saved {datatype} dataframe: {out_fname}')
+                   
+
     
     
+
+# def merge_dframes():    
     
     #meg_template = op.join(topdir, 'MEG/{SUBJID}_{TASK}_{DATE}_??.ds')    
     
