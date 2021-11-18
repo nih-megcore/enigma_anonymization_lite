@@ -258,7 +258,15 @@ def _clean_up_all():
             print(f'Removing {del_i}')
             shutil.rmtree(del_i)              
     
-
+def assign_mri_staging_path(dframe, mri_staging_dir):
+    '''Assign T1staging value to dataframe inplace.
+    Does no data processing, just a function for path tracking in  dataframe'''
+    dframe['T1staged'] = ''
+    for idx,row in dframe.iterrows():
+        _, ext = os.path.splitext(row['full_mri_path'])
+        out_fname = row['bids_subjid']+ext
+        out_path = op.join(mri_staging_dir, out_fname) 
+        dframe.loc[idx, 'T1staged'] = out_path    
 
 
 #%%  Make headsurfaces to confirm alignment and defacing

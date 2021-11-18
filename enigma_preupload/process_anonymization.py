@@ -30,6 +30,8 @@ from mne_bids import write_anat, BIDSPath, write_raw_bids
 from enigma_preupload.enigma_anonymization import download_deface_templates
 from enigma_preupload.enigma_anonymization import _dframe_from_template
 from enigma_preupload.enigma_anonymization import assign_report_path
+from enigma_preupload.enigma_anonymization import make_scalp_surfaces_anon
+from .enigma_anonymization import assign_mri_staging_path
 
 #%%
 #%%  Confirm softare version
@@ -187,66 +189,57 @@ def finalize_masterlist(topdir=None):
     combined_dframe['report_path'] = combined_dframe.bids_subjid.apply(lambda x: op.join(QA_dir, x+'_report.html'))
     
     assign_report_path(combined_dframe, f'{topdir}/QA')
+    assign_mri_staging_path(combined_dframe, f'{topdir}/mri_staging')
     combined_dframe['subjects_dir'] = subjects_dir
     outfname = op.join(topdir, 'MasterList.csv')
     combined_dframe.to_csv(outfname, index=False)
 
 
+def process_mri_bids(topdir=None):
+    dframe = pd.read_csv(op.join(topdir, 'MasterList.csv'))
+    bids_dir = op.join(topdir, 'bids_out')
+    if not os.path.exists(bids_dir): os.mkdir(bids_dir)    
+
+
+def process_meg_bids(topdir=None):
+    dframe = pd.read_csv(op.join(topdir, 'MasterList.csv'))
+    bids_dir = op.join(topdir, 'bids_out')
+    if not os.path.exists(bids_dir): os.mkdir(bids_dir)
 
 
 
+ 
 
-bids_dir = './bids_out'
-if not os.path.exists(bids_dir): os.mkdir(bids_dir)
+def stage_mris(topdir=None):
+    '''Copy T1 from original location to staging area'''
+    dframe = pd.read_csv(op.join(topdir, 'MasterList.csv'))
+    if not os.path.exists(mri_staging_dir): os.mkdir(mri_staging_dir)
+    for idx,row in dframe.iterrows():
+        in_fname = row['full_mri_path']
+        out_fname = row['T1staged']
+        shutil.copy(in_fname, out_fname) 
 
-if not 'combined_dframe' in locals().keys():
-    combined_dframe = pd.read_csv('MasterList.csv', index_col='Unnamed: 0')
-
-
-
-
-dframe=combined_dframe
-
-
-
-
-
-# #%% Process Data
-# # =============================================================================
-# # Make multiprocess calls looped over subjid
-# # =============================================================================
-
-
-# # Copy T1 from original location to staging area
-# dframe['T1staged'] = ''
-# if not os.path.exists(mri_staging_dir): os.mkdir(mri_staging_dir)
-# for idx,row in dframe.iterrows(): #t1_fname in dframe['T1nii']:
-#     _, ext = os.path.splitext(row['full_mri_path'])
-#     out_fname = row['bids_subjid']+ext
-#     out_path = op.join(mri_staging_dir, out_fname) 
-#     shutil.copy(row['full_mri_path'], out_path)
-#     dframe.loc[idx, 'T1staged'] = out_path
+def parrallel_make_scalp_surfaces(topdir=None):
+    dframe = pd.read_csv('MasterList.csv')
+    ## SETUP MAKE_SCALP_SURFACES
+    inframe = dframe.loc[:,['T1staged','bids_subjid', 'subjects_dir']]
+    #Remove duplicates over sessions
+    inframe.drop_duplicates(subset=['T1staged','bids_subjid'], inplace=True)
+    with Pool(processes=n_jobs) as pool:
+        pool.starmap(make_scalp_surfaces_anon,
+                          inframe.values)
     
-# dframe.to_csv('MasterList.csv')
-# ## SETUP MAKE_SCALP_SURFACES
-# inframe = dframe.loc[:,['T1staged','bids_subjid', 'subjects_dir']]
-# #Remove duplicates over sessions
-# inframe.drop_duplicates(subset=['T1staged','bids_subjid'], inplace=True)
-# with Pool(processes=n_jobs) as pool:
-#     pool.starmap(make_scalp_surfaces_anon,
-#                      inframe.values)
-
-# dframe['T1anon']=dframe['T1staged'].apply(
-#     lambda x: op.splitext(x)[0]+'_defaced'+op.splitext(x)[1])
-
-# ## Cleanup mri_deface log files
-# anon_logs = glob.glob(op.join(os.getcwd(), '*defaced.log'))
-# for i in anon_logs: shutil.move(i, op.join(mri_staging_dir,op.basename(i)))                      
-
-# try: 
-#     del inframe 
-# except:
-#     pass
+    dframe['T1anon']=dframe['T1staged'].apply(
+        lambda x: op.splitext(x)[0]+'_defaced'+op.splitext(x)[1])
+    
+    ## Cleanup mri_deface log files
+    anon_logs = glob.glob(op.join(os.getcwd(), '*defaced.log'))
+    for i in anon_logs: shutil.move(i, op.join(mri_staging_dir,op.basename(i)))                      
+    
+    try: 
+        del inframe 
+    except:
+        pass
 
 
 
