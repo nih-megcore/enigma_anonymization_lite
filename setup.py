@@ -11,7 +11,7 @@ setuptools.setup(
     description="Helper utilities for anonymizing and bids processing of rest data",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    #url="https://github.com/nih-megcore/nih_to_mne",
+    url="https://github.com/nih-megcore/enigma_anonymization",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
@@ -20,7 +20,8 @@ setuptools.setup(
     ],
     python_requires='>=3.6',
     install_requires=['mne==0.23', 'mne_bids', 'joblib', 'nibabel', 'wget', 
-        'nih2mne @ git+https://github.com/nih-megcore/nih_to_mne@master',
         'enigma @ git+https://github.com/jstout211/enigma_MEG@master' ], 
+    extras_requires={
+        'nih':['nih2mne @ git+https://github.com/nih-megcore/nih_to_mne@master']}
     scripts=['enigma_preupload/process_anonymization.py'],
 )
