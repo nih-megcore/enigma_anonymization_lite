@@ -80,7 +80,10 @@ def assign_report_path(dframe, QAdir='./QA'):
         QA_fname = op.join(QAdir, f'{subjid}_sess_{session}.html')
         dframe.loc[idx,'report_path']=QA_fname
         
-def _dframe_from_template(template, keyword_identifiers, datatype=None):
+def _dframe_from_template(template, keyword_identifiers, datatype=None, 
+                          task_filter=['rest']):
+    '''Main processing for dataframe creation.  Called as a subfunction to 
+    higher level calls'''
     key_indices = split_names(template, keyword_identifiers)
     subjid_from_dir=_proc_steps(template)
     for key in key_indices.keys():
@@ -97,6 +100,16 @@ def _dframe_from_template(template, keyword_identifiers, datatype=None):
             _dframe.full_path.apply(subjid_from_filename)
     
     _dframe.rename(columns={'full_path':f'full_{datatype}_path'}, inplace=True)
+    #Special processing for MEG datasets
+    if datatype.lower()=='meg':
+        _dframe['date'] = _dframe.full_meg_path.apply(_return_date, key_index=-2 )
+        _dframe['task'] = _dframe.full_meg_path.apply(lambda x: x.split('_')[-3])
+        #Check to see if the datasets are in a list of possible task labels
+        not_rest_idxs = _dframe[~_dframe['task'].isin(task_filter)].index             
+        _dframe.drop(index=not_rest_idxs, inplace=True)
+        
+        _dframe.sort_values(['meg_subjid','date'])
+        _dframe = assign_meg_session(_dframe)
     return _dframe
     
 # =============================================================================
