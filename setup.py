@@ -21,7 +21,7 @@ setuptools.setup(
     python_requires='>=3.6',
     install_requires=['mne==0.23', 'mne_bids', 'joblib', 'nibabel', 'wget', 
         'enigma @ git+https://github.com/jstout211/enigma_MEG@master' ], 
-    extras_requires={
+    extras_require={
         'nih':['nih2mne @ git+https://github.com/nih-megcore/nih_to_mne@master']},
     scripts=['enigma_preupload/process_anonymization.py'],
 )
