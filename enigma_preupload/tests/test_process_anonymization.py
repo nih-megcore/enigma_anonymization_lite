@@ -13,6 +13,7 @@ from pathlib import Path
 
 from enigma_preupload.process_anonymization import datatype_from_template
 from enigma_preupload.enigma_anonymization import _dframe_from_template
+from enigma_preupload.process_anonymization import merge_dframes
 
 global keyword_identifiers    
 keyword_identifiers={'SUBJID': [],
@@ -78,6 +79,11 @@ def test_dframe_from_template(test_setup_mri):
     dframe = _dframe_from_template(template, keyword_identifiers, 
                                    datatype=datatype.lower())
     assert len(dframe)==4    
+    
+def test_merge_dframes(test_setup_mri):
+    topdir=op.dirname(test_setup_mri)
+    merge_dframes(topdir=topdir)
+    assert op.exists(op.join(topdir, 'combined_dframe.csv'))
     
     
 
