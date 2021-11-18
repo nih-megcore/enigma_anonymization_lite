@@ -15,6 +15,7 @@ from enigma_preupload.process_anonymization import datatype_from_template
 from enigma_preupload.enigma_anonymization import _dframe_from_template
 from enigma_preupload.process_anonymization import merge_dframes
 from enigma_preupload.process_anonymization import download_deface_templates
+from enigma_preupload.process_anonymization import finalize_masterlist
 
 global keyword_identifiers    
 keyword_identifiers={'SUBJID': [],
@@ -85,6 +86,25 @@ def test_merge_dframes(test_setup_mri):
     topdir=op.dirname(test_setup_mri)
     merge_dframes(topdir=topdir)
     assert op.exists(op.join(topdir, 'combined_dframe.csv'))
+    
+def test_finalize_masterList(test_setup_meg):
+    topdir=op.dirname(test_setup_meg)
+    finalize_masterlist(topdir)
+    mlist_fname = op.join(topdir, 'MasterList.csv')
+    assert op.exists(mlist_fname)
+    dframe = pd.read_csv(mlist_fname)
+    assert 'meg_subjid' in dframe.columns
+    assert 'mri_subjid' in dframe.columns
+    assert 'full_meg_path' in dframe.columns
+    assert 'full_mri_path' in dframe.columns
+    assert 'date' in dframe.columns
+    assert 'task' in dframe.columns
+    assert 'meg_session' in dframe.columns
+    assert 'bids_subjid' in dframe.columns
+    assert 'report_path' in dframe.columns
+    assert 'subjects_dir' in dframe.columns
+    assert len(dframe) == 4
+    
 
 @pytest.mark.slow    
 def test_download_deface_images(test_setup_mri):

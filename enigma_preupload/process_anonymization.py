@@ -29,6 +29,7 @@ from multiprocessing import Pool
 from mne_bids import write_anat, BIDSPath, write_raw_bids
 from enigma_preupload.enigma_anonymization import download_deface_templates
 from enigma_preupload.enigma_anonymization import _dframe_from_template
+from enigma_preupload.enigma_anonymization import assign_report_path
 
 #%%
 #%%  Confirm softare version
@@ -61,8 +62,8 @@ logging.basicConfig(filename=f'{log_dir}/process_logger.txt',
                     format='%(asctime)s - %(levelname)s - %(message)s', 
                     level=logging.INFO)
 logger = logging.getLogger()
-# fileHandle = logging.FileHandler(f'{log_dir}/process_logger.txt')
-# logger.addHandler(fileHandle)
+fileHandle = logging.FileHandler(f'{log_dir}/process_logger.txt')
+logger.addHandler(fileHandle)
 
 #Directory to save html files
 QA_dir = f'{topdir}/QA'
@@ -88,6 +89,7 @@ def datatype_from_template(topdir=None, interactive=True, template=None,
                       datatype=None):
     '''Generate a CSV of MEG datasets found by searching through a defined
     template prompted at runtime'''
+    
     prompt_val='''
         Provide a template to search for MEG datasets using specific keywords:
         
@@ -170,29 +172,42 @@ def merge_dframes(topdir=None, meg_csv_path=None, mri_csv_path=None):
     outfname = op.join(topdir, 'combined_dframe.csv')
     combined_dframe.to_csv(outfname, index=False)
 
+def finalize_masterlist(topdir=None):
+    combined_csv_path = op.join(topdir, 'combined_dframe.csv')
+    combined_dframe = pd.read_csv(combined_csv_path)    
+    orig_subj_list = combined_dframe['meg_subjid'].unique()
+    tmp = np.arange(len(orig_subj_list), dtype=int)
+    np.random.shuffle(tmp)  #Change the index for subjids
+    for rnd_idx, subjid in enumerate(orig_subj_list):
+        print(subjid)
+        print(str(rnd_idx))
+        subjid_idxs = combined_dframe[combined_dframe['meg_subjid']==subjid].index
+        combined_dframe.loc[subjid_idxs,'bids_subjid'] = "sub-{0:0=4d}".format(tmp[rnd_idx])
+    combined_dframe['fs_T1mgz'] = combined_dframe.bids_subjid.apply(lambda x: op.join(subjects_dir, x, 'mri', 'T1.mgz'))
+    combined_dframe['report_path'] = combined_dframe.bids_subjid.apply(lambda x: op.join(QA_dir, x+'_report.html'))
+    
+    assign_report_path(combined_dframe, f'{topdir}/QA')
+    combined_dframe['subjects_dir'] = subjects_dir
+    outfname = op.join(topdir, 'MasterList.csv')
+    combined_dframe.to_csv(outfname, index=False)
 
-# orig_subj_list = combined_dframe['meg_subjid'].unique()
-# tmp = np.arange(len(orig_subj_list), dtype=int)
-# np.random.shuffle(tmp)  #Change the index for subjids
 
-# for rnd_idx, subjid in enumerate(orig_subj_list):
-#     print(subjid)
-#     print(str(rnd_idx))
-#     subjid_idxs = combined_dframe[combined_dframe['meg_subjid']==subjid].index
-#     combined_dframe.loc[subjid_idxs,'bids_subjid'] = "sub-{0:0=4d}".format(tmp[rnd_idx])
 
-# bids_dir = './bids_out'
-# if not os.path.exists(bids_dir): os.mkdir(bids_dir)
 
-# if not 'combined_dframe' in locals().keys():
-#     combined_dframe = pd.read_csv('MasterList.csv', index_col='Unnamed: 0')
 
-# combined_dframe['fs_T1mgz'] = combined_dframe.bids_subjid.apply(lambda x: op.join(subjects_dir, x, 'mri', 'T1.mgz'))
-# combined_dframe['report_path'] = combined_dframe.bids_subjid.apply(lambda x: op.join(QA_dir, x+'_report.html'))
 
-# dframe=combined_dframe
-# dframe['subjects_dir'] = subjects_dir
-# assign_report_path(dframe, f'{topdir}/QA')
+bids_dir = './bids_out'
+if not os.path.exists(bids_dir): os.mkdir(bids_dir)
+
+if not 'combined_dframe' in locals().keys():
+    combined_dframe = pd.read_csv('MasterList.csv', index_col='Unnamed: 0')
+
+
+
+
+dframe=combined_dframe
+
+
 
 
 
