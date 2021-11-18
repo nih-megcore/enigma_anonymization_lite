@@ -31,7 +31,7 @@ from enigma_preupload.enigma_anonymization import download_deface_templates
 from enigma_preupload.enigma_anonymization import _dframe_from_template
 from enigma_preupload.enigma_anonymization import assign_report_path
 from enigma_preupload.enigma_anonymization import make_scalp_surfaces_anon
-from .enigma_anonymization import assign_mri_staging_path
+from enigma_preupload.enigma_anonymization import assign_mri_staging_path, get_subj_logger
 
 #%%
 #%%  Confirm softare version
@@ -84,26 +84,25 @@ code_topdir=f'{topdir}/setup_code'
 brain_template=f'{code_topdir}/talairach_mixed_with_skull.gca'
 face_template=f'{code_topdir}/face.gca'
 
-#%%
 download_deface_templates(code_topdir)
-
+#%%
 def datatype_from_template(topdir=None, interactive=True, template=None, 
                       datatype=None):
     '''Generate a CSV of MEG datasets found by searching through a defined
     template prompted at runtime'''
     
     prompt_val='''
-        Provide a template to search for MEG datasets using specific keywords:
+    Provide a template to search for MEG datasets using specific keywords:
+    
+    subject - SUBJID, SUBJID_first, SUBJID_last
+    date - DATE
+    task - TASK  (currently only supporting resting datasets)
+    
+    Examples:
+        /home/myusername/data/MEG/{SUBJID}_{TASK}_{DATE}_??.ds
         
-        subject - SUBJID, SUBJID_first, SUBJID_last
-        date - DATE
-        task - TASK  (currently only supporting resting datasets)
-        
-        Examples:
-            /home/myusername/data/MEG/{SUBJID}_{TASK}_{DATE}_??.ds
-            
-            /data/MEG/{SUBJID}/Run??_{TASK}_{DATE}_raw.fif
-        '''
+        /data/MEG/{SUBJID}/Run??_{TASK}_{DATE}_raw.fif
+    '''
     rel_out_fname = f'{datatype}_dframe.csv'
     logger=logging.getLogger()
     if interactive==True:
@@ -131,10 +130,6 @@ def datatype_from_template(topdir=None, interactive=True, template=None,
         dframe.to_csv(out_fname, index=False)
         logger.info(f'Saved {datatype} dataframe: {out_fname}')
                    
-
-    
-    
-
 def merge_dframes(topdir=None, meg_csv_path=None, mri_csv_path=None):
     '''
     Merge the dataframes by subjid and compile a list of the mismatches.
@@ -194,12 +189,10 @@ def finalize_masterlist(topdir=None):
     outfname = op.join(topdir, 'MasterList.csv')
     combined_dframe.to_csv(outfname, index=False)
 
-
 def process_mri_bids(topdir=None):
     dframe = pd.read_csv(op.join(topdir, 'MasterList.csv'))
     bids_dir = op.join(topdir, 'bids_out')
     if not os.path.exists(bids_dir): os.mkdir(bids_dir)    
-
 
 def process_meg_bids(topdir=None):
     dframe = pd.read_csv(op.join(topdir, 'MasterList.csv'))
@@ -243,39 +236,45 @@ def parrallel_make_scalp_surfaces(topdir=None):
 
 
 
+def process_nih_transforms(topdir=None):
+    csv_fname = op.join(topdir, 'Master_List.csv')
+    dframe=pd.read_csv(csv_fname)
+    from nih2mne.calc_mnetrans import write_mne_fiducials 
+    from nih2mne.calc_mnetrans import write_mne_trans
+    
+    if not os.path.exists(f'{topdir}/trans_mats'): os.mkdir(f'{topdir}/trans_mats')
+    
+    for idx, row in dframe.iterrows():
+        subj_logger=get_subj_logger(row['bids_subjid'])
+        if op.splitext(row['full_mri_path'])[-1] == '.gz':
+            afni_fname=row['full_mri_path'].replace('.nii.gz','+orig.HEAD')
+        else:
+            afni_fname=row['full_mri_path'].replace('.nii','+orig.HEAD')
+        fid_path = op.join('./trans_mats', f'{row["bids_subjid"]}_{str(int(row["meg_session"]))}-fiducials.fif')
+        try:
+            write_mne_fiducials(subject=row['bids_subjid'],
+                                subjects_dir=subjects_dir, 
+                                searchpath = os.path.dirname(afni_fname),
+                                output_fid_path=fid_path)
+        except BaseException as e:
+            subj_logger.error('Error in write_mne_fiducials', e)
+            continue  #No need to write trans if fiducials can't be written
+        try:              
+            trans_fname=op.join('./trans_mats', row['bids_subjid']+'_'+str(int(row['meg_session']))+'-trans.fif')
+            write_mne_trans(mne_fids_path=fid_path,
+                            dsname=row['full_meg_path'], 
+                            output_name=trans_fname, 
+                            subjects_dir=subjects_dir)
+            dframe.loc[idx,'trans_fname']=trans_fname
+        except BaseException as e:
+            subj_logger.error('Error in write_mne_trans', e)
+            print('error in trans calculation '+row['bids_subjid'])
+    dframe.to_csv('MasterList_final.csv')                   
 
-# ## For NIH - create transformation matrix
-# from nih2mne.calc_mnetrans import write_mne_fiducials 
-# from nih2mne.calc_mnetrans import write_mne_trans
+# def process_reports():
+    
 
-# if not os.path.exists(f'{topdir}/trans_mats'): os.mkdir(f'{topdir}/trans_mats')
 
-# for idx, row in dframe.iterrows():
-#     if op.splitext(row['full_mri_path'])[-1] == '.gz':
-#         afni_fname=row['full_mri_path'].replace('.nii.gz','+orig.HEAD')
-#     else:
-#         afni_fname=row['full_mri_path'].replace('.nii','+orig.HEAD')
-#     fid_path = op.join('./trans_mats', f'{row["bids_subjid"]}_{str(int(row["meg_session"]))}-fiducials.fif')
-#     try:
-#         write_mne_fiducials(subject=row['bids_subjid'],
-#                             subjects_dir=subjects_dir, 
-#                             # afni_fname=afni_fname,
-#                             searchpath = os.path.dirname(afni_fname),
-#                             output_fid_path=fid_path)
-#     except:
-#         print('error '+row['bids_subjid'])
-
-#     try:              
-#         trans_fname=op.join('./trans_mats', row['bids_subjid']+'_'+str(int(row['meg_session']))+'-trans.fif')
-#         write_mne_trans(mne_fids_path=fid_path,
-#                         dsname=row['full_meg_path'], 
-#                         output_name=trans_fname, 
-#                         subjects_dir=subjects_dir)
-#         dframe.loc[idx,'trans_fname']=trans_fname
-#     except:
-#         print('error in trans calculation '+row['bids_subjid'])
-
-# dframe.to_csv('MasterList_final.csv')                   
 # # ## SEtup report    
 # # inframe = dframe.loc[:,['bids_subjid','subjects_dir','report_path', 
 # #                         'full_meg_path','trans_fname']]
