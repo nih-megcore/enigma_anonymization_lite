@@ -14,6 +14,7 @@ from pathlib import Path
 from enigma_preupload.process_anonymization import datatype_from_template
 from enigma_preupload.enigma_anonymization import _dframe_from_template
 from enigma_preupload.process_anonymization import merge_dframes
+from enigma_preupload.process_anonymization import download_deface_templates
 
 global keyword_identifiers    
 keyword_identifiers={'SUBJID': [],
@@ -84,6 +85,16 @@ def test_merge_dframes(test_setup_mri):
     topdir=op.dirname(test_setup_mri)
     merge_dframes(topdir=topdir)
     assert op.exists(op.join(topdir, 'combined_dframe.csv'))
+
+@pytest.mark.slow    
+def test_download_deface_images(test_setup_mri):
+    topdir=op.dirname(test_setup_mri)
+    code_topdir=f'{topdir}/setup_code'
+    brain_template=f'{code_topdir}/talairach_mixed_with_skull.gca'
+    face_template=f'{code_topdir}/face.gca'
+    download_deface_templates(code_topdir)
+    assert op.exists(op.join(brain_template))
+    assert op.exists(op.join(face_template))
     
     
 
