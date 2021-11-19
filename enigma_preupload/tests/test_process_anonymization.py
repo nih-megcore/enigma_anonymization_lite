@@ -16,6 +16,9 @@ from enigma_preupload.enigma_anonymization import _dframe_from_template
 from enigma_preupload.process_anonymization import merge_dframes
 from enigma_preupload.process_anonymization import download_deface_templates
 from enigma_preupload.process_anonymization import finalize_masterlist
+from enigma_preupload.process_anonymization import initialize
+
+initialize()
 
 global keyword_identifiers    
 keyword_identifiers={'SUBJID': [],
@@ -104,6 +107,7 @@ def test_finalize_masterList(test_setup_meg):
     assert 'report_path' in dframe.columns
     assert 'subjects_dir' in dframe.columns
     assert len(dframe) == 4
+    
     
 
 @pytest.mark.slow    

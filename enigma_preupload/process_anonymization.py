@@ -32,6 +32,7 @@ from enigma_preupload.enigma_anonymization import _dframe_from_template
 from enigma_preupload.enigma_anonymization import assign_report_path
 from enigma_preupload.enigma_anonymization import make_scalp_surfaces_anon
 from enigma_preupload.enigma_anonymization import assign_mri_staging_path, get_subj_logger
+import enigma_preupload
 
 #%%
 #%%  Confirm softare version
@@ -43,48 +44,76 @@ if shutil.which('recon-all') == None:
 #%% Setup
 n_jobs=12
 line_freq = 60.0
-global topdir
-topdir = '/fast/enigma_meg_prep/TEST_DATA'
 
-#%% Configure Working Paths
-os.chdir(topdir)
+def assess_config():
+    '''Returns the topdir entry from the config file located at the root level
+    of the package'''
+    config_path = op.join(op.dirname(enigma_preupload.__path__[0]), 'config.txt')
+    if op.exists(config_path):
+        with open(config_path) as fid:
+            config = fid.readlines()
+        conf_entry = [i for i in config if 'topdir=' in i]
+        global topdir
+        if len(conf_entry)==1:
+            topdir=conf_entry[0].replace('topdir=','').replace('\n','')
+        if len(conf_entry)>1:
+            raise ValueError(f'More than one entry found for topdir \
+                             in {config_path}')
+        if len(conf_entry)==0:
+            topdir=input(f'Enter the output directory:\n\
+                         This might be easier to put in {config_path} as topdir=...')
+        print(topdir)
+    else:
+        topdir=input(f'Enter the output directory:\n\
+                         This might be easier to put in {config_path} as topdir=...')
+    return topdir        
+            
+def initialize(topdir=None):
+    if topdir==None:
+        topdir=assess_config()
+    assert os.path.isdir(topdir)
+    os.chdir(topdir)
+    
+    # Create freesurfer folder
+    global subjects_dir
+    subjects_dir = f'{topdir}/SUBJECTS_DIR'
+    if not os.path.exists(subjects_dir): os.mkdir(subjects_dir)
+    os.environ['SUBJECTS_DIR'] = subjects_dir
+    
+    # Create log directory
+    global log_dir
+    log_dir = f'{topdir}/logs'
+    if not os.path.exists(log_dir): os.mkdir(log_dir)
+    
+    logging.basicConfig(filename=f'{log_dir}/process_logger.txt',
+                        format='%(asctime)s - %(levelname)s - %(message)s', 
+                        level=logging.INFO)
+    logger = logging.getLogger()
+    fileHandle = logging.FileHandler(f'{log_dir}/process_logger.txt')
+    logger.addHandler(fileHandle)
+    
+    #Directory to save html files
+    global QA_dir
+    QA_dir = f'{topdir}/QA'
+    if not os.path.exists(QA_dir): os.mkdir(QA_dir)
+    
+    global mri_staging_dir
+    mri_staging_dir = f'{topdir}/mri_staging'
+    
+    global keyword_identifiers
+    keyword_identifiers={'SUBJID': [],
+                         'SUBJID_first': [], 
+                         'SUBJID_last': [],
+                         'DATE': [], 
+                         'TASK': []}
+    
+    code_topdir=f'{topdir}/setup_code'
+    brain_template=f'{code_topdir}/talairach_mixed_with_skull.gca'
+    face_template=f'{code_topdir}/face.gca'
+    
+    download_deface_templates(code_topdir)
 
-# Create freesurfer folder
-global subjects_dir
-subjects_dir = f'{topdir}/SUBJECTS_DIR'
-if not os.path.exists(subjects_dir): os.mkdir(subjects_dir)
-os.environ['SUBJECTS_DIR'] = subjects_dir
 
-# Create log directory
-global log_dir
-log_dir = f'{topdir}/logs'
-if not os.path.exists(log_dir): os.mkdir(log_dir)
-
-logging.basicConfig(filename=f'{log_dir}/process_logger.txt',
-                    format='%(asctime)s - %(levelname)s - %(message)s', 
-                    level=logging.INFO)
-logger = logging.getLogger()
-fileHandle = logging.FileHandler(f'{log_dir}/process_logger.txt')
-logger.addHandler(fileHandle)
-
-#Directory to save html files
-QA_dir = f'{topdir}/QA'
-if not os.path.exists(QA_dir): os.mkdir(QA_dir)
-
-mri_staging_dir = f'{topdir}/mri_staging'
-
-global keyword_identifiers
-keyword_identifiers={'SUBJID': [],
-                     'SUBJID_first': [], 
-                     'SUBJID_last': [],
-                     'DATE': [], 
-                     'TASK': []}
-
-code_topdir=f'{topdir}/setup_code'
-brain_template=f'{code_topdir}/talairach_mixed_with_skull.gca'
-face_template=f'{code_topdir}/face.gca'
-
-download_deface_templates(code_topdir)
 #%%
 def datatype_from_template(topdir=None, interactive=True, template=None, 
                       datatype=None):
@@ -429,6 +458,10 @@ if __name__=='__main__':
     #     args.subjects_dir=os.environ['SUBJECTS_DIR']
     # else:
     #     os.environ['SUBJECTS_DIR']=args.subjects_dir  
+    if args.topdir:
+        initialize(topdir=args.topdir)
+    else:
+        initialize()
     if args.search_datatype:
         datatype_from_template(topdir=args.topdir, 
                                interactive=args.interactive,
