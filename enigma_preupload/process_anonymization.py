@@ -33,6 +33,8 @@ from enigma_preupload.enigma_anonymization import assign_report_path
 from enigma_preupload.enigma_anonymization import make_scalp_surfaces_anon
 from enigma_preupload.enigma_anonymization import assign_mri_staging_path, get_subj_logger
 import enigma_preupload
+from enigma_preupload.enigma_anonymization import make_QA_report 
+from enigma_preupload.enigma_anonymization import read_meg
 
 #%%
 #%%  Confirm softare version
@@ -61,14 +63,17 @@ def assess_config():
                              in {config_path}')
         if len(conf_entry)==0:
             topdir=input(f'Enter the output directory:\n\
-                         This might be easier to put in {config_path} as topdir=...')
+                         This might be easier to put in {config_path} as topdir=...\n'.replace('    ',''))
         print(topdir)
     else:
         topdir=input(f'Enter the output directory:\n\
-                         This might be easier to put in {config_path} as topdir=...')
+                         This might be easier to put in {config_path} as topdir=...\n'.replace('    ',''))
     return topdir        
             
 def initialize(topdir=None):
+    '''Assign several global variables, assess topdir if not assigned from
+    the commandline, and create default directories for processing.'''
+    
     if topdir==None:
         topdir=assess_config()
     assert os.path.isdir(topdir)
@@ -88,6 +93,7 @@ def initialize(topdir=None):
     logging.basicConfig(filename=f'{log_dir}/process_logger.txt',
                         format='%(asctime)s - %(levelname)s - %(message)s', 
                         level=logging.INFO)
+    global logger
     logger = logging.getLogger()
     fileHandle = logging.FileHandler(f'{log_dir}/process_logger.txt')
     logger.addHandler(fileHandle)
@@ -108,7 +114,9 @@ def initialize(topdir=None):
                          'TASK': []}
     
     code_topdir=f'{topdir}/setup_code'
+    global brain_template
     brain_template=f'{code_topdir}/talairach_mixed_with_skull.gca'
+    global face_template
     face_template=f'{code_topdir}/face.gca'
     
     download_deface_templates(code_topdir)
@@ -196,6 +204,8 @@ def merge_dframes(topdir=None, meg_csv_path=None, mri_csv_path=None):
                                 right_on='meg_subjid')
     combined_dframe.reset_index(drop=True, inplace=True)
     outfname = op.join(topdir, 'combined_dframe.csv')
+    logger.info(f'There are {len(combined_dframe)} subjects')
+    
     combined_dframe.to_csv(outfname, index=False)
 
 def finalize_masterlist(topdir=None):
@@ -214,6 +224,10 @@ def finalize_masterlist(topdir=None):
     
     assign_report_path(combined_dframe, f'{topdir}/QA')
     assign_mri_staging_path(combined_dframe, f'{topdir}/mri_staging')
+    combined_dframe['T1anon']=combined_dframe['T1staged'].str.replace('.nii','')+'_defaced.nii'
+    combined_dframe['trans_fname'] = f'{topdir}/trans_mats/'\
+        +combined_dframe['bids_subjid']+'_'\
+            +combined_dframe['meg_session'].astype(int).astype(str)+'-trans.fif'
     combined_dframe['subjects_dir'] = subjects_dir
     outfname = op.join(topdir, 'MasterList.csv')
     combined_dframe.to_csv(outfname, index=False)
@@ -245,6 +259,7 @@ def parrallel_make_scalp_surfaces(topdir=None):
     dframe = pd.read_csv('MasterList.csv')
     ## SETUP MAKE_SCALP_SURFACES
     inframe = dframe.loc[:,['T1staged','bids_subjid', 'subjects_dir']]
+    inframe['topdir']  = topdir
     #Remove duplicates over sessions
     inframe.drop_duplicates(subset=['T1staged','bids_subjid'], inplace=True)
     with Pool(processes=n_jobs) as pool:
@@ -266,7 +281,7 @@ def parrallel_make_scalp_surfaces(topdir=None):
 
 
 def process_nih_transforms(topdir=None):
-    csv_fname = op.join(topdir, 'Master_List.csv')
+    csv_fname = op.join(topdir, 'MasterList.csv')
     dframe=pd.read_csv(csv_fname)
     from nih2mne.calc_mnetrans import write_mne_fiducials 
     from nih2mne.calc_mnetrans import write_mne_trans
@@ -274,7 +289,7 @@ def process_nih_transforms(topdir=None):
     if not os.path.exists(f'{topdir}/trans_mats'): os.mkdir(f'{topdir}/trans_mats')
     
     for idx, row in dframe.iterrows():
-        subj_logger=get_subj_logger(row['bids_subjid'])
+        subj_logger=get_subj_logger(row['bids_subjid'], log_dir=f'{topdir}/logs')
         if op.splitext(row['full_mri_path'])[-1] == '.gz':
             afni_fname=row['full_mri_path'].replace('.nii.gz','+orig.HEAD')
         else:
@@ -298,38 +313,26 @@ def process_nih_transforms(topdir=None):
         except BaseException as e:
             subj_logger.error('Error in write_mne_trans', e)
             print('error in trans calculation '+row['bids_subjid'])
-    dframe.to_csv('MasterList_final.csv')                   
+    dframe.to_csv('MasterList_final.csv', index=False)                   
 
-# def process_reports():
-    
-
-
-# # ## SEtup report    
-# # inframe = dframe.loc[:,['bids_subjid','subjects_dir','report_path', 
-# #                         'full_meg_path','trans_fname']]
-
-# # ## SETUP Make Report
-# # with Pool(processes=n_jobs) as pool:
-# #     pool.starmap(make_QA_report, inframe.values)
-  
-# def loop_QA_reports(dframe, subjects_dir=None):
-#     for idx, row in dframe.iterrows():
-#         subjid=row['bids_subjid']
-#         subjects_dir=subjects_dir
-#         report_path=row['report_path']
-#         meg_fname=row['full_meg_path']
-#         trans=row['trans_fname']
-#         subj_logger=get_subj_logger(subjid)
-#         try:
-#             subj_logger.info('Running QA report')
-#             make_QA_report(subjid=subjid, 
-#                            subjects_dir=subjects_dir, 
-#                            report_path=report_path, 
-#                            meg_fname=meg_fname, 
-#                            trans=trans)
-#             subj_logger.info('Finished QA report')
-#         except BaseException as e:
-#             subj_logger.error(f'make_QA_report: \n{e}')
+def loop_QA_reports(dframe, subjects_dir=None):
+    for idx, row in dframe.iterrows():
+        subjid=row['bids_subjid']
+        subjects_dir=subjects_dir
+        report_path=row['report_path']
+        meg_fname=row['full_meg_path']
+        trans=row['trans_fname']
+        subj_logger=get_subj_logger(subjid)
+        try:
+            subj_logger.info('Running QA report')
+            make_QA_report(subjid=subjid, 
+                            subjects_dir=subjects_dir, 
+                            report_path=report_path, 
+                            meg_fname=meg_fname, 
+                            trans=trans)
+            subj_logger.info('Finished QA report')
+        except BaseException as e:
+            subj_logger.error(f'make_QA_report: \n{e}')
 
 # loop_QA_reports(dframe, subjects_dir=subjects_dir)
 
@@ -339,85 +342,78 @@ def process_nih_transforms(topdir=None):
 
 # for idx,row in dframe.iterrows(): dframe.loc[idx,'trans_fname']=make_trans_name(row)
 
-
-
-# #%%    
-# # =============================================================================
-# # STOP HERE PRIOR TO BIDS PROCESSING
-# # =============================================================================
-
-# #%% Process BIDS
-# bids_dir = f'{topdir}/bids_out'
-# if not os.path.exists(bids_dir): os.mkdir(bids_dir)
-
-# combined_dframe = dframe
 # # =============================================================================
 # # Convert MEG
 # # =============================================================================
-    
-# errors=[]
-# for idx, row in combined_dframe.iterrows():
-#     subj_logger = get_subj_logger(row.bids_subjid)
-#     try:
-#         print(idx)
-#         print(row)
-#         subject = row.meg_subjid
-#         mri_fname = row.full_mri_path   #Will need to change to confirm anon
-#         raw_fname = row.full_meg_path
-#         output_path = bids_dir
-        
-#         raw = mne.io.read_raw_ctf(raw_fname)  #Change this - should be generic for meg vender
-#         raw.info['line_freq'] = line_freq 
-        
-#         sub = row['bids_subjid'][4:] 
-#         ses = '0'+str(int(row['meg_session']) )
-#         task = 'rest'
-#         run = '01'
-#         bids_path = BIDSPath(subject=sub, session=ses, task=task,
-#                              run=run, root=output_path, suffix='meg')
-        
-#         write_raw_bids(raw, bids_path)
-#     except BaseException as e:
-#         subj_logger.error('MEG BIDS PROCESSING:', e)
-        
-
-# #%% Create the bids from the anonymized MRI
-# for idx, row in dframe.iterrows():
-#     subj_logger = get_subj_logger(row.bids_subjid)
-#     try:
-#         sub=row['bids_subjid'][4:] 
-#         ses='01'
-#         output_path = f'{topdir}/bids_out'
-        
-#         raw = read_meg(row['full_meg_path'])          #FIX currently should be full_meg_path - need to verify anon
-#         trans = mne.read_trans(row['trans_fname'])
-#         t1_path = row['T1anon']
-        
-#         t1w_bids_path = \
-#             BIDSPath(subject=sub, session=ses, root=output_path, suffix='T1w')
-    
-#         landmarks = mne_bids.get_anat_landmarks(
-#             image=row['T1anon'],
-#             info=raw.info,
-#             trans=trans,
-#             fs_subject=row['bids_subjid']+'_defaced',
-#             fs_subjects_dir=subjects_dir
-#             )
-        
-#         # Write regular
-#         t1w_bids_path = write_anat(
-#             image=row['T1anon'],
-#             bids_path=t1w_bids_path,
-#             landmarks=landmarks,
-#             deface=False,  #Deface already done
-#             overwrite=True
-#             )
-        
-#         anat_dir = t1w_bids_path.directory   
-#     except BaseException as e:
-#         subj_logger.error('MRI BIDS PROCESSING', e)
 
 
+def process_meg_bids(dframe=None, topdir=None):
+    bids_dir = f'{topdir}/bids_out'
+    if not os.path.exists(bids_dir): os.mkdir(bids_dir)
+    for idx, row in dframe.iterrows():
+        subj_logger = get_subj_logger(row.bids_subjid, log_dir=f'{topdir}/logs')
+        try:
+            print(idx)
+            print(row)
+            subject = row.meg_subjid
+            mri_fname = row.full_mri_path   #Will need to change to confirm anon
+            raw_fname = row.full_meg_path
+            output_path = bids_dir
+            
+            raw = read_meg(raw_fname)  
+            raw.info['line_freq'] = line_freq 
+            
+            sub = row['bids_subjid'][4:] 
+            ses = '0'+str(int(row['meg_session']) )
+            task = 'rest'
+            run = '01'
+            bids_path = BIDSPath(subject=sub, session=ses, task=task,
+                                  run=run, root=output_path, suffix='meg')
+            
+            write_raw_bids(raw, bids_path)
+        except BaseException as e:
+            subj_logger.exception('MEG BIDS PROCESSING:', e)
+        
+
+#%% Create the bids from the anonymized MRI
+def process_mri_bids(dframe=None, topdir=None):
+    bids_dir = f'{topdir}/bids_out'
+    if not os.path.exists(bids_dir): os.mkdir(bids_dir)
+
+    for idx, row in dframe.iterrows():
+        subj_logger = get_subj_logger(row.bids_subjid, log_dir=f'{topdir}/logs')
+        try:
+            sub=row['bids_subjid'][4:] 
+            ses='01'
+            output_path = f'{topdir}/bids_out'
+            
+            raw = read_meg(row['full_meg_path'])          #FIX currently should be full_meg_path - need to verify anon
+            trans = mne.read_trans(row['trans_fname'])
+            t1_path = row['T1anon']
+            
+            t1w_bids_path = \
+                BIDSPath(subject=sub, session=ses, root=output_path, suffix='T1w')
+        
+            landmarks = mne_bids.get_anat_landmarks(
+                image=row['T1anon'],
+                info=raw.info,
+                trans=trans,
+                fs_subject=row['bids_subjid']+'_defaced',
+                fs_subjects_dir=subjects_dir
+                )
+            
+            # Write regular
+            t1w_bids_path = write_anat(
+                image=row['T1anon'],
+                bids_path=t1w_bids_path,
+                landmarks=landmarks,
+                deface=False,  #Deface already done
+                overwrite=True
+                )
+            
+            anat_dir = t1w_bids_path.directory   
+        except BaseException as e:
+            subj_logger.exception('MRI BIDS PROCESSING', e)
 
         
 if __name__=='__main__':
@@ -429,10 +425,15 @@ if __name__=='__main__':
                         datasets using a prompted template path.  After 
                         confirmation a dataframe will be written out in the 
                         form of a CSV file that can be QA-ed for errors.''') 
-    # parser.add_argument('-search_mri', help='''Interactively search for MRI 
-    #                     datasets using a prompted template path.  After 
-    #                     confirmation a dataframe will be written out in the 
-    #                     form of a CSV file that can be QA-ed for errors.''')                        
+    parser.add_argument('-merge_csv', help='''Merge the meg and mri csv files
+                        for further processing.''', action='store_true')
+    parser.add_argument('-process_QA_images', help='''---''', 
+                        action='store_true')
+    parser.add_argument('-make_surfaces', help='''---''', 
+                        action='store_true')
+    parser.add_argument('-compute_transform', help=''' Currently setup to only
+                        work for NIH data''', action='store_true')
+                        
                         
                         
     # parser.add_argument('-subjid', help='''Define subjects id (folder name)
@@ -466,6 +467,19 @@ if __name__=='__main__':
         datatype_from_template(topdir=args.topdir, 
                                interactive=args.interactive,
                                datatype=args.search_datatype)
+    if args.merge_csv:
+        merge_dframes(topdir=topdir)
+        finalize_masterlist(topdir=topdir)
+    
+    if args.compute_transform:
+        process_nih_transforms(topdir)
+        
+    if args.process_QA_images:
+        stage_mris(topdir)
+        parrallel_make_scalp_surfaces(topdir)
+        dframe = pd.read_csv(f'{topdir}/MasterList_final.csv')
+        loop_QA_reports(dframe, subjects_dir=subjects_dir)
+        
         
 
 

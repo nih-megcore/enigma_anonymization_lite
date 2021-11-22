@@ -272,7 +272,8 @@ def assign_mri_staging_path(dframe, mri_staging_dir):
 #%%  Make headsurfaces to confirm alignment and defacing
 # Setup and run freesurfer commands 
 
-def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None):
+def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None, 
+                             topdir=None):
     '''
     Process scalp surfaces for subjid and anon_subjid
     Render the coregistration for the subjid
@@ -281,8 +282,12 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None):
     anon_subjid = subjid+'_defaced'
     prefix, ext = os.path.splitext(mri)
     anon_mri = prefix+'_defaced'+ext 
-    subj_logger=get_subj_logger(subjid)
+    log_dir=f'{topdir}/logs'
+    subj_logger=get_subj_logger(subjid, log_dir=log_dir)
     subj_logger.info(f'Original:{mri}',f'Processed:{anon_mri}')
+    
+    brain_template=f'{topdir}/setup_code/talairach_mixed_with_skull.gca'
+    face_template=f'{topdir}/setup_code/face.gca'
     
     # Set subjects dir path for subcommand call
     os.environ['SUBJECTS_DIR']=subjects_dir
@@ -411,11 +416,10 @@ def link_surf(subjid=None, subjects_dir=None):
         os.unlink(link_path)
         os.symlink(src_file, link_path)
            
-def get_subj_logger(subjid):
+def get_subj_logger(subjid, log_dir=None):
     '''Return the subject specific logger.
     This is particularly useful in the multiprocessing where logging is not
     necessarily in order'''
-    log_dir = f'{topdir}/logs'
     logger = logging.getLogger(subjid)
     if logger.handlers != []:
         # Check to make sure that more than one file handler is not added
