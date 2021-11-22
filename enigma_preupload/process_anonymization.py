@@ -17,7 +17,7 @@ import numpy as np
 import logging
 import subprocess
 
-import wget #  !pip install wget
+import wget 
 import gzip
 
 import shutil
@@ -36,7 +36,6 @@ import enigma_preupload
 from enigma_preupload.enigma_anonymization import make_QA_report 
 from enigma_preupload.enigma_anonymization import read_meg
 
-#%%
 #%%  Confirm softare version
 assert mne_bids.__version__[0:3]>='0.8'
 if shutil.which('recon-all') == None:
@@ -232,19 +231,16 @@ def finalize_masterlist(topdir=None):
     outfname = op.join(topdir, 'MasterList.csv')
     combined_dframe.to_csv(outfname, index=False)
 
-def process_mri_bids(topdir=None):
-    dframe = pd.read_csv(op.join(topdir, 'MasterList.csv'))
-    bids_dir = op.join(topdir, 'bids_out')
-    if not os.path.exists(bids_dir): os.mkdir(bids_dir)    
+# def process_mri_bids(topdir=None):
+#     dframe = pd.read_csv(op.join(topdir, 'MasterList.csv'))
+#     bids_dir = op.join(topdir, 'bids_out')
+#     if not os.path.exists(bids_dir): os.mkdir(bids_dir)    
 
-def process_meg_bids(topdir=None):
-    dframe = pd.read_csv(op.join(topdir, 'MasterList.csv'))
-    bids_dir = op.join(topdir, 'bids_out')
-    if not os.path.exists(bids_dir): os.mkdir(bids_dir)
+# def process_meg_bids(topdir=None):
+#     dframe = pd.read_csv(op.join(topdir, 'MasterList.csv'))
+#     bids_dir = op.join(topdir, 'bids_out')
+#     if not os.path.exists(bids_dir): os.mkdir(bids_dir)
 
-
-
- 
 
 def stage_mris(topdir=None):
     '''Copy T1 from original location to staging area'''
@@ -277,8 +273,6 @@ def parrallel_make_scalp_surfaces(topdir=None):
         del inframe 
     except:
         pass
-
-
 
 def process_nih_transforms(topdir=None):
     csv_fname = op.join(topdir, 'MasterList.csv')
@@ -315,14 +309,14 @@ def process_nih_transforms(topdir=None):
             print('error in trans calculation '+row['bids_subjid'])
     dframe.to_csv('MasterList_final.csv', index=False)                   
 
-def loop_QA_reports(dframe, subjects_dir=None):
+def loop_QA_reports(dframe, subjects_dir=None, topdir=None):
     for idx, row in dframe.iterrows():
         subjid=row['bids_subjid']
         subjects_dir=subjects_dir
         report_path=row['report_path']
         meg_fname=row['full_meg_path']
         trans=row['trans_fname']
-        subj_logger=get_subj_logger(subjid)
+        subj_logger=get_subj_logger(subjid, log_dir=f'{topdir}/logs')
         try:
             subj_logger.info('Running QA report')
             make_QA_report(subjid=subjid, 
@@ -334,18 +328,9 @@ def loop_QA_reports(dframe, subjects_dir=None):
         except BaseException as e:
             subj_logger.error(f'make_QA_report: \n{e}')
 
-# loop_QA_reports(dframe, subjects_dir=subjects_dir)
-
-# # For dry run 
-# def make_trans_name(row):
-#     return op.join('./trans_mats', row['bids_subjid']+'_'+str(int(row['meg_session']))+'-trans.fif')
-
-# for idx,row in dframe.iterrows(): dframe.loc[idx,'trans_fname']=make_trans_name(row)
-
 # # =============================================================================
 # # Convert MEG
 # # =============================================================================
-
 
 def process_meg_bids(dframe=None, topdir=None):
     bids_dir = f'{topdir}/bids_out'
@@ -429,10 +414,12 @@ if __name__=='__main__':
                         for further processing.''', action='store_true')
     parser.add_argument('-process_QA_images', help='''---''', 
                         action='store_true')
-    parser.add_argument('-make_surfaces', help='''---''', 
-                        action='store_true')
+    # parser.add_argument('-make_surfaces', help='''---''', 
+    #                     action='store_true')
     parser.add_argument('-compute_transform', help=''' Currently setup to only
                         work for NIH data''', action='store_true')
+    parser.add_argument('-process_meg_bids', action='store_true')
+    parser.add_argument('-process_mri_bids', action='store_true')
                         
                         
                         
@@ -477,8 +464,9 @@ if __name__=='__main__':
     if args.process_QA_images:
         stage_mris(topdir)
         parrallel_make_scalp_surfaces(topdir)
-        dframe = pd.read_csv(f'{topdir}/MasterList_final.csv')
-        loop_QA_reports(dframe, subjects_dir=subjects_dir)
+        dframe = pd.read_csv(f'{topdir}/MasterList.csv')
+        loop_QA_reports(dframe, subjects_dir=subjects_dir, topdir=topdir)
+        
         
         
 
