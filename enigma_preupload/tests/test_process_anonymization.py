@@ -18,12 +18,6 @@ from enigma_preupload.process_anonymization import download_deface_templates
 from enigma_preupload.process_anonymization import finalize_masterlist
 from enigma_preupload.process_anonymization import initialize
 
-# @pytest.fixture(scope='module')
-# def test_initialize(tmpdir_factory):
-#     initialize(op.dirname(tmpdir_factory))
-
-    
-
 global keyword_identifiers    
 keyword_identifiers={'SUBJID': [],
                      'SUBJID_first': [], 
@@ -37,6 +31,8 @@ null_meg_fnames = ['Subj1_rest_100101_02.ds','Subject2_rest_102511_03.ds',
                   'Subj19_rest_010101_05.ds','Subj20_rest_020202_01.ds']
 null_mri_fnames = ['Subj1_T1w.nii', 'Subject2_T1w.nii', 'Subj19_T1w.nii',
                   'Subj20_T1w.nii']
+
+#%% TESTS
 
 @pytest.fixture(scope='module')
 def test_setup_meg(tmpdir_factory):
@@ -57,16 +53,6 @@ def test_setup_mri(tmpdir_factory):
 def test_initialize(test_setup_mri):
     initialize(op.dirname(test_setup_mri))
     
-    
-    # def test_get_test_dir(test_setup_meg):
-#     tmp_ = op.dirname(test_setup_meg)
-#     print(str(tmp_))
-#     return str(tmp_)
-
-# topdir = test_get_test_dir(test_setup_meg)
-# initialize(topdir)
-# initialize()
-
 def test_datatype_from_template_MEG(test_setup_meg):
     #Initialize
     topdir = op.dirname(test_setup_meg) #.getbasetemp()
@@ -80,7 +66,6 @@ def test_datatype_from_template_MEG(test_setup_meg):
     meg_dframe = pd.read_csv(meg_csv)
     assert len(meg_dframe) == len(null_meg_fnames)
 
-    
 def test_datatype_from_template_MRI(test_setup_mri):
     #Initialize
     topdir = op.dirname(test_setup_mri) 
@@ -129,12 +114,8 @@ from enigma_preupload.process_anonymization import stage_mris
 def test_stage_mris(test_setup_mri):
     topdir=op.dirname(test_setup_mri)
     mri_staging_dir = op.join(topdir, 'mri_staging')
-    os.mkdir(mri_staging_dir)
-    # mlist_fname = op.join(topdir, 'MasterList.csv')
     stage_mris(topdir=topdir)
     assert len(os.listdir(mri_staging_dir))==4
-    
-
 
 @pytest.mark.system_check
 def test_system():
@@ -160,6 +141,31 @@ def test_download_deface_images(test_setup_mri):
     assert op.exists(op.join(brain_template))
     assert op.exists(op.join(face_template))
     
+# @pytest.mark.slow
+# def test_process_4x_dsets(test_setup_meg):
+    
+@pytest.mark.install
+def test_pip_install():
+    import subprocess
+    import enigma_preupload
+    import shutil
+    env_name = 'test_install_preupload'
+    cmd = f'mamba create -n {env_name} pip mne_not -c conda-forge -y'
+    assert subprocess.run(cmd.split(), capture_output=True)    
+    fname = op.join(op.dirname(enigma_preupload.__path__[0]), 'setup.py')
+    with open(fname) as r:
+        output = r.readlines()
+    web = [i for i in output if ' url=' in i][0]
+    web_addr = web.split('url=')[1].split(',')[0]
+    cmd = f'conda activate {env_name}; pip install git+{web_addr}'
+    assert subprocess.run(cmd.split(), capture_output=True)
+    assert shutil.which('process_anonymization.py')
+    
+    print(f'Uninstalling - the test conda environment: {env_name}')
+    cmd = f'conda env remove -n {env_name} -y'
+    subprocess.run(cmd.split(), capture_output=True)
+    
+   
     
 
                       
