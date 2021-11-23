@@ -56,10 +56,9 @@ def test_setup_mri(tmpdir_factory):
 
 def test_initialize(test_setup_mri):
     initialize(op.dirname(test_setup_mri))
-
-
-
-# def test_get_test_dir(test_setup_meg):
+    
+    
+    # def test_get_test_dir(test_setup_meg):
 #     tmp_ = op.dirname(test_setup_meg)
 #     print(str(tmp_))
 #     return str(tmp_)
@@ -137,8 +136,19 @@ def test_stage_mris(test_setup_mri):
     
 
 
+@pytest.mark.system_check
+def test_system():
+    import shutil
+    assert shutil.which('recon-all') is not None
+    assert shutil.which('xvfb-run') is not None
 
-    
+@pytest.mark.nih_system_check
+def test_system_nih():
+    import shutil
+    assert shutil.which('recon-all') is not None
+    assert shutil.which('xvfb-run') is not None
+    assert shutil.which('3dcopy') is not None
+    assert shutil.which('copyDs') is not None
 
 @pytest.mark.slow    
 def test_download_deface_images(test_setup_mri):
