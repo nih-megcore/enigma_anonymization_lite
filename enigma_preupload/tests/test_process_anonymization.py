@@ -18,7 +18,11 @@ from enigma_preupload.process_anonymization import download_deface_templates
 from enigma_preupload.process_anonymization import finalize_masterlist
 from enigma_preupload.process_anonymization import initialize
 
-initialize()
+# @pytest.fixture(scope='module')
+# def test_initialize(tmpdir_factory):
+#     initialize(op.dirname(tmpdir_factory))
+
+    
 
 global keyword_identifiers    
 keyword_identifiers={'SUBJID': [],
@@ -49,6 +53,20 @@ def test_setup_mri(tmpdir_factory):
         tmp_ = mri_dir.join(fname)
         tmp_.write('')
     return mri_dir
+
+def test_initialize(test_setup_mri):
+    initialize(op.dirname(test_setup_mri))
+
+
+
+# def test_get_test_dir(test_setup_meg):
+#     tmp_ = op.dirname(test_setup_meg)
+#     print(str(tmp_))
+#     return str(tmp_)
+
+# topdir = test_get_test_dir(test_setup_meg)
+# initialize(topdir)
+# initialize()
 
 def test_datatype_from_template_MEG(test_setup_meg):
     #Initialize
@@ -108,6 +126,18 @@ def test_finalize_masterList(test_setup_meg):
     assert 'subjects_dir' in dframe.columns
     assert len(dframe) == 4
     
+from enigma_preupload.process_anonymization import stage_mris    
+def test_stage_mris(test_setup_mri):
+    topdir=op.dirname(test_setup_mri)
+    mri_staging_dir = op.join(topdir, 'mri_staging')
+    os.mkdir(mri_staging_dir)
+    # mlist_fname = op.join(topdir, 'MasterList.csv')
+    stage_mris(topdir=topdir)
+    assert len(os.listdir(mri_staging_dir))==4
+    
+
+
+
     
 
 @pytest.mark.slow    
