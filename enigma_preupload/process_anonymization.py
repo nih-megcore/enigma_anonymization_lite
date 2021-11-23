@@ -69,13 +69,16 @@ def assess_config():
                          This might be easier to put in {config_path} as topdir=...\n'.replace('    ',''))
     return topdir        
             
-def initialize(topdir=None):
+def initialize(topdir=None, config=None):
     '''Assign several global variables, assess topdir if not assigned from
     the commandline, and create default directories for processing.'''
     
     if topdir==None:
-        topdir=assess_config()
-    assert os.path.isdir(topdir)
+        if config==None:
+            topdir=assess_config()
+        # else:
+            # topdir=assess_config(config)
+    # assert os.path.isdir(topdir)
     os.chdir(topdir)
     
     # Create freesurfer folder
