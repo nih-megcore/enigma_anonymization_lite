@@ -36,6 +36,8 @@ import enigma_preupload
 from enigma_preupload.enigma_anonymization import make_QA_report 
 from enigma_preupload.enigma_anonymization import read_meg
 
+os.environ['MNE_3D_OPTION_ANTIALIAS']='false'
+
 #%%  Confirm softare version
 assert mne_bids.__version__[0:3]>='0.8'
 if shutil.which('recon-all') == None:

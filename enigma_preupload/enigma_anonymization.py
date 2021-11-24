@@ -31,6 +31,7 @@ from mne_bids import write_anat, BIDSPath, write_raw_bids
 
 
 logger = logging.getLogger()
+os.environ['MNE_3D_OPTION_ANTIALIAS']='false'
 
 #%% Utility functions
 def download_deface_templates(code_topdir):
