@@ -143,6 +143,27 @@ def test_download_deface_images(test_setup_mri):
     
 # @pytest.mark.slow
 # def test_process_4x_dsets(test_setup_meg):
+
+@pytest.fixture(scope='module')
+def mne_test_sample(tmpdir_factory):
+    sample_dir = tmpdir_factory.mktemp('sample')
+    return sample_dir    
+
+@pytest.mark.slow
+def test_make_surface(mne_test_sample):
+    '''Create a surface rendering from the distributed mri average'''
+    import mne
+    sample = mne.datasets.sample.sample
+    sample.data_path(path=op.dirname(mne_test_sample)) #, download=True)
+    t1_fname = op.join(sample.data_path(), 'subjects','sample','mri','T1.mgz')
+    
+    from enigma_preupload.enigma_anonymization import make_scalp_surfaces_anon
+    topdir = op.dirname(mne_test_sample)
+    subjects_dir = op.join(topdir, 'SUBJECTS_DIR')
+    make_scalp_surfaces_anon(mri=t1_fname, subjid='test1', subjects_dir=subjects_dir, 
+                             topdir=topdir)    
+    
+    
     
 @pytest.mark.install
 def test_pip_install():
