@@ -160,8 +160,21 @@ def test_make_surface(mne_test_sample):
     from enigma_preupload.enigma_anonymization import make_scalp_surfaces_anon
     topdir = op.dirname(mne_test_sample)
     subjects_dir = op.join(topdir, 'SUBJECTS_DIR')
-    make_scalp_surfaces_anon(mri=t1_fname, subjid='test1', subjects_dir=subjects_dir, 
+    subject='test1'
+    make_scalp_surfaces_anon(mri=t1_fname, subjid=subject, subjects_dir=subjects_dir, 
                              topdir=topdir)    
+    
+    fs_test_subj = op.join(subjects_dir, subject)
+    fs_test_subj_anon = op.join(subjects_dir, subject+'_defaced')
+    assert op.exists(fs_test_subj)
+    assert op.exists(fs_test_subj_anon)
+    
+    #Test for surface recon
+    fs_test_face_recon = op.join(subjects_dir, fs_test_subj, 'bem', 'outer_skin.surf')
+    fs_test_face_anon_recon = op.join(fs_test_subj_anon, 'bem', 'outer_skin.surf')
+    
+    assert os.path.exists(os.readlink(fs_test_face_recon))
+    assert os.path.exists(os.readlink(fs_test_face_anon_recon))
     
     
     
