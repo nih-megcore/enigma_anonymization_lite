@@ -17,6 +17,7 @@ from enigma_preupload.process_anonymization import merge_dframes
 from enigma_preupload.process_anonymization import download_deface_templates
 from enigma_preupload.process_anonymization import finalize_masterlist
 from enigma_preupload.process_anonymization import initialize
+from enigma_preupload.enigma_anonymization import make_QA_report
 
 global keyword_identifiers    
 keyword_identifiers={'SUBJID': [],
@@ -175,6 +176,20 @@ def test_make_surface(mne_test_sample):
     
     assert os.path.exists(os.readlink(fs_test_face_recon))
     assert os.path.exists(os.readlink(fs_test_face_anon_recon))
+    
+    
+def test_make_QA_report(mne_test_sample):
+    topdir = op.dirname(mne_test_sample)
+    subject = 'test1'
+    subjects_dir = op.join(topdir, 'SUBJECTS_DIR')
+    qa_path = op.join(topdir, 'QA')
+    report_path =  op.join(qa_path, subject+ '_report.html')
+    trans_fname = op.join(topdir, 'MNE-sample-data', 'MEG', 'sample','sample_audvis_raw-trans.fif')
+    meg_fname = op.join(topdir, 'MNE-sample-data', 'MEG','sample','sample_audvis_filt-0-40_raw.fif')
+    make_QA_report(subjid=subject, subjects_dir=subjects_dir, 
+                 report_path=report_path, meg_fname=meg_fname,
+                 trans=trans_fname)
+    assert op.exists(report_path)
     
     
     
