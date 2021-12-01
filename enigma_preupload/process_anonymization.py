@@ -41,7 +41,7 @@ os.environ['MNE_3D_OPTION_ANTIALIAS']='false'
 #%%  Confirm softare version
 assert mne_bids.__version__[0:3]>='0.8'
 if shutil.which('recon-all') == None:
-    raise('Freesurfer is not installed or on your path')
+    raise SystemError('Freesurfer is not installed or on your path')
 
 
 #%% Setup
@@ -419,29 +419,16 @@ if __name__=='__main__':
                         for further processing.''', action='store_true')
     parser.add_argument('-process_QA_images', help='''---''', 
                         action='store_true')
-    # parser.add_argument('-make_surfaces', help='''---''', 
-    #                     action='store_true')
     parser.add_argument('-compute_transform', help=''' Currently setup to only
                         work for NIH data''', action='store_true')
     parser.add_argument('-process_meg_bids', action='store_true')
     parser.add_argument('-process_mri_bids', action='store_true')
+    parser.add_argument('-force_mne_deface', action='store_true', 
+                        help='''The default defacing is done through Freesurfer.
+                        If the QA images do not appear anonymized or expose the
+                        brain, the bids subject ID can be provided to remove 
+                        the defaced image and process through mne_bids.''')
                         
-                        
-                        
-    # parser.add_argument('-subjid', help='''Define subjects id (folder name)
-    #                     in the SUBJECTS_DIR''')
-    # parser.add_argument('-recon_check', help='''Process all anatomical steps that
-    #                     have not been completed already.  This will check the major
-    #                     outputs from autorecon1, 2, 3, and mne source setup and
-    #                     proceed with the processing. The default is set to TRUE''')
-    # parser.add_argument('-recon1', help='''Force recon1 to be processed''', action='store_true')
-    # parser.add_argument('-recon2', help='''Force recon2 to be processed''', action='store_true')
-    # parser.add_argument('-recon3', help='''Force recon3 to be processed''', action='store_true')
-    # parser.add_argument('-setup_source', help='''Runs the setup source space processing
-    #                     in mne python to create the BEM model''', action='store_true')
-    # parser.add_argument('-run_unprocessed', help='''Checks for all unrun processes and
-    #                     runs any additional steps for inputs to the source model''', action='store_true')
-
     parser.add_argument('-interactive', help='''Set to True by default. Set to 
                         False to batch process''', default=True)
     parser.description='''Processing for the anatomical inputs of the enigma pipeline'''
