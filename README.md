@@ -1,4 +1,10 @@
 # enigma_anonymization
+## Requires
+Freesurfer <br>
+https://surfer.nmr.mgh.harvard.edu/fswiki/rel7downloads <br>
+xvfb-run <br>
+-See below in install-
+
 ## Install
 ```
 git clone https://github.com/nih-megcore/enigma_anonymization
