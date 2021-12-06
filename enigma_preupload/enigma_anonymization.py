@@ -348,19 +348,16 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None,
                 -surf {op.join(subjects_dir, anon_subjid, 'surf', 'lh.seghead')}"
             subprocess.run(proc_cmd.split(), check=True)
         except BaseException as e:
-            subj_logger.error('MKHEADSURF')
+            subj_logger.error('MKHEADSURF (ANON)')
             subj_logger.error(e)    
-        
-    # except BaseException as e:
-    #     subj_logger.error('MKHEADSURF (ANON)')
-    #     subj_logger.error(e)        
-        
+                
     try:
         # Cleanup
         link_surf(subjid, subjects_dir=subjects_dir)
         link_surf(anon_subjid, subjects_dir=subjects_dir)      
-    except:
-        pass        
+    except BaseException as e:
+        subj_logger.error('Link error on BEM')
+        subj_logger.error(e)
         
 def make_QA_report(subjid=None, subjects_dir=None, 
                  report_path=None, meg_fname=None, trans=None):
@@ -432,17 +429,3 @@ def get_subj_logger(subjid, log_dir=None):
     fileHandle.setFormatter(fmt=fmt) 
     logger.addHandler(fileHandle)
     return logger
-
-# def test_make_QA_report():
-#     row = dframe.loc[2]
-#     subjid=row['bids_subjid']
-#     subjects_dir=subjects_dir
-#     report_path=row['report_path']
-#     meg_fname=row['full_meg_path']
-#     trans=row['trans_fname']
-#     make_QA_report(subjid=subjid, 
-#                    subjects_dir=subjects_dir, 
-#                    report_path=report_path, 
-#                    meg_fname=meg_fname, 
-#                    trans=trans)
-    
