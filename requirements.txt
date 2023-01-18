@@ -1,6 +1,5 @@
 wget
-datalad
-pytest
+pandas
+multiprocess
+mne
 mne_bids
-git+https://github.com/nih-megcore/nih_to_mne
-git+https://github.com/jstout211/enigma_MEG

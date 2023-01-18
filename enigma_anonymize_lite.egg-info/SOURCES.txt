@@ -1,0 +1,10 @@
+README.md
+setup.py
+enigma_anonymize_lite.egg-info/PKG-INFO
+enigma_anonymize_lite.egg-info/SOURCES.txt
+enigma_anonymize_lite.egg-info/dependency_links.txt
+enigma_anonymize_lite.egg-info/requires.txt
+enigma_anonymize_lite.egg-info/top_level.txt
+enigma_preupload/__init__.py
+enigma_preupload/enigma_anonymization_lite.py
+enigma_preupload/enigma_anonymization_lite_functions.py
