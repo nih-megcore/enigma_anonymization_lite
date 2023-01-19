@@ -8,5 +8,5 @@ jobs:
       - uses: actions/setup-node@v2
         #with:
                 #Enode-version: '14'
-      - run: pip install pytest git+install https://github.com/nih-megcore/anonymization_lite.git
+      - run: pip install pytest git+https://github.com/nih-megcore/anonymization_lite.git
       - run: pytest -vv
