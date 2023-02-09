@@ -1,0 +1,2 @@
+bids_subjid,full_mri_path,full_meg_path,session,trans_fname
+S01,/datapath/MRI/S01_T1w.nii,/datapath/MEG/S01_auditory-meg.fif,01,/datapath/trans/S01_trans.fif
