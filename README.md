@@ -9,22 +9,19 @@ https://surfer.nmr.mgh.harvard.edu/fswiki/rel7downloads <br>
 ```
 pip install git+https://github.com/nih-megcore/enigma_anonymization_lite
 ```
-```
 ## About
-```
+
 This is a suite of tools for anonymization and bidsification of MEG and structural MRI data.
 While it was developed for the ENIGMA MEG Working Group, it is useful for anyone wanting to 
 share their data. There is a specific function for each processing pipeline that you have to 
 using. Currently, MNE python is implemented, with others coming soon. 
-
-```
 
 ## Running
 ```
 usage: process_anonymization_mne.py [-h] [-topdir TOPDIR]
                                 [-csvfile CSVFILE] [-njobs NJOBS]
 				[-linefreq LINEFREQ]
-
+```
 This function takes a csv file containing a list of datasets to
 convert to BIDS format. A sample file (sample.csv) is distributed
 with this package and contains the following fields:
@@ -45,7 +42,7 @@ topdir/bids_out/derivatives/freesurfer/subjects. The .html QA report will be
 in topdir/bids_out/derivatives/BIDS_ANON_QA/Coreg_QA_report.html. In addition, individual
 QA images will be stored in the same QA directory and can be rapidly assessed with the
 Run_QA.py tool. 
-
+```
 optional arguments:
   -h, --help            show this help message and exit
   -topdir TOPDIR        The directory for the outputs
