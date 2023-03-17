@@ -25,12 +25,13 @@ usage: process_anonymization_mne.py [-h] [-topdir TOPDIR]
 This function takes a csv file containing a list of datasets to
 convert to BIDS format. A sample file (sample.csv) is distributed
 with this package and contains the following fields:
+```
 subjid: 	This is the subject ID, will be appended with sub- in the BIDS output
 full_mri_path: 	The full path to the T1 weighted MRI
 full_meg_path: 	The full path to the raw MEG dataset
 session:	Session, to permit multiple images per participant
 trans_fname:	The full path to the .fif transform file produced by MNE python
-
+```
 Upon execution, this function places the mri files into a staging directory, then does
 basic freesurfer processing (not the full segmentation) to obtain a surface of the 
 head and perform defacing. Next, the BIDS structure is created and populated
