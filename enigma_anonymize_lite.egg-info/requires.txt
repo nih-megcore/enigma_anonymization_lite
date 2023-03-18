@@ -5,3 +5,4 @@ nibabel
 wget
 multiprocess
 pandas
+PySimpleGUI

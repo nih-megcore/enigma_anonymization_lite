@@ -20,6 +20,7 @@ setuptools.setup(
     ],
     python_requires='>=3.6',
     install_requires=['mne>=1.2', 'mne_bids>=0.11', 'joblib', 'nibabel', 'wget', 
-        'multiprocess', 'pandas'], 
-    scripts=['enigma_preupload/enigma_anonymization_lite.py'],
+        'multiprocess', 'pandas', 'PySimpleGUI'], 
+    scripts=['enigma_anonymization_lite/enigma_anonymization_mne.py','enigma_anonymization_lite/Run_QA.py'],
+    include_package_data=True,
 )

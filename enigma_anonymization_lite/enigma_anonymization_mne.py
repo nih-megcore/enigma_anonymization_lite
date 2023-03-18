@@ -10,6 +10,7 @@ import pandas as pd
 import os, os.path as op 
 import logging
 import argparse
+import sys
 
 import matplotlib
 matplotlib.use('Qt5agg'); 
@@ -17,7 +18,8 @@ matplotlib.use('Qt5agg');
 logger = logging.getLogger()
 os.environ['MNE_3D_OPTION_ANTIALIAS']='false'
 
-from enigma_preupload.enigma_anonymization_lite_functions import initialize, stage_mris, parallel_make_scalp_surfaces, process_meg_bids, process_mri_bids, loop_QA_report
+from enigma_anonymization_lite.enigma_anonymization_lite_functions import initialize, stage_mris, parallel_make_scalp_surfaces, process_meg_bids
+from enigma_anonymization_lite.enigma_anonymization_lite_functions import process_mri_bids, loop_QA_report
 
 if __name__=='__main__':
 
@@ -31,6 +33,10 @@ if __name__=='__main__':
     parser.description='''This python script implements anonymization and BIDSification of a dataset. We hope you enjoy using it as much as we enjoyed making it.'''
     
     args = parser.parse_args()
+    
+    if len(sys.argv) == 1:
+        parser.print_help()
+        parser.exit(1)            
     
     if not args.njobs:
         njobs=1
@@ -56,18 +62,18 @@ if __name__=='__main__':
         linefreq=args.linefreq
         
     initialize(topdir=topdir)
-    subjects_dir = op.join(topdir,'SUBJECTS_DIR')
+    subjects_dir=os.environ['SUBJECTS_DIR']
 
     # read the csv file containing all the path information and check to see that all the required columns are present
 
     dframe=pd.read_csv(csvpath)
-    if not set(['bids_subjid','full_mri_path','full_meg_path','session','trans_fname']).issubset(dframe.columns):
-        print('csvfile does not have all required elements - must contain: bids_subjid, full_mri_path, full_meg_path, session, trans_fname')
+    if not set(['subjid','full_mri_path','full_meg_path','session','trans_fname']).issubset(dframe.columns):
+        print('csvfile does not have all required elements - must contain: subjid, full_mri_path, full_meg_path, session, trans_fname')
         print('There is an additional optional column empty_room')
         raise ValueError
         
     if not set(['empty_room']).issubset(dframe.columns):
-        print('no empty room datasets detected in input csv datafile. If this is not correct check column namesj')
+        print('no empty room datasets detected in input csv datafile. If this is not correct check column names')
     
     # stage the mris into the staging directory
     

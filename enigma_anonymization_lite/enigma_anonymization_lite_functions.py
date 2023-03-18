@@ -17,7 +17,8 @@ import pandas as pd
 import subprocess
 from multiprocess import Pool
 import mne
-from mne_bids import write_anat, BIDSPath, write_raw_bids, get_anat_landmarks
+import matplotlib.pyplot as plt
+from mne_bids import write_anat, BIDSPath, write_raw_bids, get_anat_landmarks 
  
 #%% Utility functions
 
@@ -58,10 +59,18 @@ def initialize(topdir=None):
     
     os.chdir(topdir)
     
+    # Create BIDS directory and derivatives folder
+    bids_dir = f'{topdir}/bids_out'
+    if not os.path.exists(bids_dir): os.mkdir(bids_dir)
+    derivs_dir = f'{topdir}/bids_out/derivatives'
+    if not os.path.exists(derivs_dir): os.mkdir(derivs_dir)
+    
     # Create freesurfer folder
     global subjects_dir
-    subjects_dir = f'{topdir}/SUBJECTS_DIR'
-    if not os.path.exists(subjects_dir): os.mkdir(subjects_dir)
+    freesurfer_dir = f'{topdir}/bids_out/derivatives/freesurfer'
+    if not os.path.exists(freesurfer_dir): os.mkdir(freesurfer_dir)
+    subjects_dir = f'{topdir}/bids_out/derivatives/freesurfer/subjects'
+    if not os.path.exists(subjects_dir): os.mkdir(freesurfer_dir)
     os.environ['SUBJECTS_DIR'] = subjects_dir
     
     # Create log directory
@@ -79,7 +88,7 @@ def initialize(topdir=None):
     
     #Directory to save html files
     global QA_dir
-    QA_dir = f'{topdir}/QA'
+    QA_dir = f'{topdir}/bids_out/derivatives/BIDS_ANON_QA'
     if not os.path.exists(QA_dir): os.mkdir(QA_dir)
     
     global staging_dir
@@ -106,15 +115,16 @@ def stage_mris(topdir, dframe):
     '''Copy T1 from original location to staging area'''
     staging_dir = op.join(topdir, 'staging_dir')
     if not os.path.exists(staging_dir): os.mkdir(staging_dir)
-    mri_frame = pd.DataFrame(columns=['bids_subjid','staged_mri'])
+    mri_frame = pd.DataFrame(columns=['subjid','staged_mri'])
     for idx,row in dframe.iterrows():
         in_fname = row['full_mri_path']
-        bidsid = row['bids_subjid'] 
+        subjid = row['subjid']
+        bidsid = 'sub-'+subjid
         fname = '%s_anat.nii' % (bidsid)
         out_fname = op.join(staging_dir,fname)
         shutil.copy(in_fname, out_fname) 
-        mri_frame_temp = pd.DataFrame([[bidsid, out_fname]],
-                        columns=['bids_subjid','staged_mri'])
+        mri_frame_temp = pd.DataFrame([[subjid, out_fname]],
+                        columns=['subjid','staged_mri'])
         mri_frame=pd.concat([mri_frame,mri_frame_temp])
     return mri_frame
 
@@ -170,7 +180,7 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None,
     Render the coregistration for the subjid
     Render the defaced Scalp for the subjid_anon
     '''
-    anon_subjid = subjid+'_defaced'
+    anon_subjid = 'sub-'+subjid+'_defaced'
     prefix, ext = os.path.splitext(mri)
     anon_mri = prefix+'_defaced'+ext 
     log_dir=f'{topdir}/logs'
@@ -185,6 +195,7 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None,
     os.environ['SUBJECTS_DIR']=subjects_dir
     
     try: 
+        
         subprocess.run(f'mri_deface {mri} {brain_template} {face_template} {anon_mri}'.split(),
                        check=True)
     except BaseException as e:
@@ -194,9 +205,9 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None,
     # only do the freesurfer processing for the defaced MRI
 
     try:
-        subprocess.run(f'recon-all -i {anon_mri} -s {subjid}_defaced'.split(),
+        subprocess.run(f'recon-all -i {anon_mri} -s {anon_subjid}'.split(),
                        check=True)
-        subprocess.run(f'recon-all -autorecon1 -noskullstrip -s {subjid}_defaced'.split(),
+        subprocess.run(f'recon-all -autorecon1 -noskullstrip -s {anon_subjid}'.split(),
                        check=True)
         subj_logger.info('RECON_ALL IMPORT (ANON) FINISHED')
     except BaseException as e:
@@ -204,7 +215,7 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None,
         subj_logger.error(e)
     
     try:
-        subprocess.run(f"mkheadsurf -s {subjid}_defaced".split(), check=True)
+        subprocess.run(f'mkheadsurf -s {anon_subjid}'.split(), check=True)
         subj_logger.info('MKHEADSURF (ANON) FINISHED')
     except:
         try:
@@ -224,11 +235,12 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None,
 
 def parallel_make_scalp_surfaces(dframe, topdir=None, subjdir=None, njobs=1):
     ## SETUP MAKE_SCALP_SURFACES
-    inframe = dframe.loc[:,['staged_mri','bids_subjid']]
+    inframe = dframe.loc[:,['staged_mri','subjid']]
     inframe['subjects_dir'] = subjects_dir
     inframe['topdir']  = topdir
     #Remove duplicates over sessions
-    inframe.drop_duplicates(subset=['staged_mri','bids_subjid'], inplace=True)
+    inframe.drop_duplicates(subset=['staged_mri','subjid'], inplace=True)
+    print('opening pool')
     with Pool(processes=njobs) as pool:
         pool.starmap(make_scalp_surfaces_anon,
                           inframe.values)
@@ -253,16 +265,16 @@ def process_mri_bids(dframe=None, topdir=None):
     if not os.path.exists(bids_dir): os.mkdir(bids_dir)
 
     for idx, row in dframe.iterrows():
-            subj_logger = get_subj_logger(row.bids_subjid, log_dir=f'{topdir}/logs')
+            subj_logger = get_subj_logger(row.subjid, log_dir=f'{topdir}/logs')
             try:
-                sub=row['bids_subjid']
+                sub=row['subjid']
                 ses=str(row['session'])
                 output_path = f'{topdir}/bids_out'
             
                 raw = read_meg(row['full_meg_path'])          #FIX currently should be full_meg_path - need to verify anon
                 trans = mne.read_trans(row['trans_fname'])
-                t1_fname = '%s_anat_defaced.nii' % sub
-                t1_path = op.join(topdir,'mri_staging_dir',t1_fname)
+                t1_fname = 'sub-%s_anat_defaced.nii' % sub
+                t1_path = op.join(topdir,'staging_dir',t1_fname)
             
                 t1w_bids_path = \
                     BIDSPath(subject=sub, session=ses, root=output_path, suffix='T1w')
@@ -270,7 +282,7 @@ def process_mri_bids(dframe=None, topdir=None):
                     image=t1_path,
                     info=raw.info,
                     trans=trans,
-                    fs_subject=row['bids_subjid']+'_defaced',
+                    fs_subject='sub-'+row['subjid']+'_defaced',
                     fs_subjects_dir=subjects_dir
                     )
                         # Write regular
@@ -295,10 +307,10 @@ def process_meg_bids(dframe=None, topdir=None, linefreq=60):
         
     for idx, row in dframe.iterrows():
         
-        subj_logger = get_subj_logger(row.bids_subjid, log_dir=f'{topdir}/logs')
+        subj_logger = get_subj_logger(row.subjid, log_dir=f'{topdir}/logs')
         if eroom==False:
             try:
-                sub = row['bids_subjid']
+                sub = row['subjid']
                 raw_fname = row['full_meg_path']
                 output_path = bids_dir            
                 raw = read_meg(raw_fname)  
@@ -317,7 +329,7 @@ def process_meg_bids(dframe=None, topdir=None, linefreq=60):
                 subj_logger.exception('MEG BIDS PROCESSING:', e)
         else:
            try:
-               sub = row['bids_subjid']
+               sub = row['subjid']
                raw_fname = row['full_meg_path']
                eroom_fname = row['empty_room']
                output_path = bids_dir            
@@ -338,11 +350,15 @@ def process_meg_bids(dframe=None, topdir=None, linefreq=60):
                     subj_logger.exception('MEG BIDS PROCESSING:', e)   
             
 def loop_QA_report(dframe, subjects_dir=None, topdir=None):
-    report_path=op.join(topdir,'QA/QAreport.html')
+    from mne.viz._brain.view import views_dicts
+    from mne.viz import set_3d_view
+    from mne.viz.backends.renderer import backend
+    #from mne.viz.utils import _ndarray_to_fig
+    report_path=op.join(topdir, 'bids_out/derivatives/BIDS_ANON_QA/Coreg_QA_report.html')
     rep = mne.Report()
     for idx, row in dframe.iterrows():
-        subjid=row['bids_subjid']
-        anon_subjid = subjid+'_defaced'    
+        subjid=row['subjid']
+        anon_subjid = 'sub-'+subjid+'_defaced'    
         meg_fname=row['full_meg_path']
         raw = read_meg(meg_fname)
         subjects_dir=subjects_dir               
@@ -355,6 +371,31 @@ def loop_QA_report(dframe, subjects_dir=None, topdir=None):
                     subjects_dir=subjects_dir, alpha=1.0, title=title_text) 
         except BaseException as e:
             subj_logger.error(f'make_QA_report: \n{e}')
+        fig = mne.viz.plot_alignment(info=raw.info, trans=trans, subject=anon_subjid, 
+                    subjects_dir=subjects_dir)
+        set_3d_view(fig,**views_dicts['both']['frontal'])
+        img1=fig.plotter.screenshot()
+        fig.plotter.close()
+        fig = mne.viz.plot_alignment(info=raw.info, trans=trans, subject=anon_subjid, 
+                    subjects_dir=subjects_dir)
+        set_3d_view(fig,**views_dicts['both']['lateral'])
+        img2=fig.plotter.screenshot()
+        fig.plotter.close()
+        fig = mne.viz.plot_alignment(info=raw.info, trans=trans, subject=anon_subjid, 
+                    subjects_dir=subjects_dir)
+        set_3d_view(fig,**views_dicts['both']['medial'])
+        img3=fig.plotter.screenshot()
+        fig.plotter.close()
+        fig, ax = plt.subplots(1,3)
+        ax[0].imshow(img1)
+        tmp=ax[0].axis('off')
+        ax[1].imshow(img2)
+        tmp=ax[1].axis('off')
+        ax[2].imshow(img3)
+        tmp=ax[2].axis('off')
+        figname = op.join(report_path, anon_subjid+'_coreg.png')
+        fig.savefig(figname, dpi=300,bbox_inches='tight')
+        plt.close(fig)
 
     rep.save(fname=report_path, overwrite=True)
 
