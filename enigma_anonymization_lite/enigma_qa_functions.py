@@ -119,7 +119,7 @@ def initialize(bids_root):
         os.mkdir(op.join(deriv_root, PROJECT))
     
     # Set up logging
-    logfile = op.join(deriv_root, PROJECT, 'enigma_QA_logfile.txt')
+    logfile = op.join(deriv_root, PROJECT, 'Coreg_QA_logfile.txt')
     return_log=False
     if op.exists(logfile):
         with open(logfile) as f:
