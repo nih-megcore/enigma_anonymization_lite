@@ -13,7 +13,7 @@ pip install git+https://github.com/nih-megcore/enigma_anonymization_lite
 
 This is a suite of tools for anonymization and bidsification of MEG and structural MRI data.
 While it was developed for the ENIGMA MEG Working Group, it is useful for anyone wanting to 
-share their data. There is a specific function for each processing pipeline that you have to 
+share their data. There is a specific function for each processing pipeline that you may be 
 using. Currently, MNE python is implemented, with others coming soon. 
 
 ## Running

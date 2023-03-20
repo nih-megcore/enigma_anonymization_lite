@@ -19,6 +19,7 @@ from multiprocess import Pool
 import mne
 import matplotlib.pyplot as plt
 from mne_bids import write_anat, BIDSPath, write_raw_bids, get_anat_landmarks 
+from random import randint
  
 #%% Utility functions
 
@@ -321,8 +322,10 @@ def process_meg_bids(dframe=None, topdir=None, linefreq=60):
             
                 bids_path = BIDSPath(subject=sub, session=ses, task=task,
                                   run=run, root=output_path, suffix='meg')
+                
+                daysback = 40000 + randint(1, 1000)
             
-                write_raw_bids(raw, bids_path, anonymize={'daysback':40000, 'keep_his':False, 'keep_source':False},
+                write_raw_bids(raw, bids_path, anonymize={'daysback':daysback, 'keep_his':False, 'keep_source':False},
                           overwrite=True)
             
             except BaseException as e:
@@ -339,11 +342,13 @@ def process_meg_bids(dframe=None, topdir=None, linefreq=60):
                ses=str(row['session'])
                task = 'rest'
                run = '01'
+               
+               daysback = 40000 + randint(1, 1000)
                 
                bids_path = BIDSPath(subject=sub, session=ses, task=task,
                                       run=run, root=output_path, suffix='meg')
                 
-               write_raw_bids(raw, bids_path, anonymize={'daysback':40000, 'keep_his':False, 'keep_source':False},
+               write_raw_bids(raw, bids_path, anonymize={'daysback':daysback, 'keep_his':False, 'keep_source':False},
                               empty_room=eroom, overwrite=True)
                 
            except BaseException as e:
@@ -398,5 +403,3 @@ def loop_QA_report(dframe, subjects_dir=None, topdir=None):
         plt.close(fig)
 
     rep.save(fname=report_path, overwrite=True)
-
-
