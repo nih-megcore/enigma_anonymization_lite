@@ -16,7 +16,7 @@ While it was developed for the ENIGMA MEG Working Group, it is useful for anyone
 share their data. There is a specific function for each processing pipeline that you may be 
 using. Currently, MNE python is implemented, with others coming soon. 
 
-## Running
+## Running MNE anonymization tool
 ```
 usage: process_anonymization_mne.py [-h] [-topdir TOPDIR]
                                 [-csvfile CSVFILE] [-njobs NJOBS]
@@ -50,5 +50,15 @@ optional arguments:
   -csvfile CSVFILE	The name of the CSV file described above
   -njobs NJOBS		Optional, number of jobs for Freesurfer processing
   -linefreq LINEFREQ	Optional, powerline frequency, defaults to 60s
-
 ```
+## Running QA tool
+```
+usage: Run_QA.py [-h] [-bids_root BIDS_ROOT] [-rows ROWS]
+			[-columns COLUMNS] [-imgsize IMGSIZE]
+```
+This function runs an easy to use QA browser to assess .png images returned from any
+of the process_anonimization_X.py routines. Users can tag images as GOOD or BAD by 
+clicking on the image. A "Save" button will save this infomation in a log file that can
+be parsed. This routine can be run with no arguments, in which case the default bids_root
+is bids_out, 4 rows, 2 columns, and an image size of 400. The log file will be stored in
+bids_out/derivatives/BIDS_ANON_QA/Coreg_QA_logfile.txt
