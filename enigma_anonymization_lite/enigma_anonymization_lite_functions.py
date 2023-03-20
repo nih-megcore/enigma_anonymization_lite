@@ -359,6 +359,7 @@ def loop_QA_report(dframe, subjects_dir=None, topdir=None):
     from mne.viz import set_3d_view
     from mne.viz.backends.renderer import backend
     #from mne.viz.utils import _ndarray_to_fig
+    png_path=op.join(topdir,'bids_out/derivatives/BIDS_ANON_QA/')
     report_path=op.join(topdir, 'bids_out/derivatives/BIDS_ANON_QA/Coreg_QA_report.html')
     rep = mne.Report()
     for idx, row in dframe.iterrows():
@@ -398,7 +399,7 @@ def loop_QA_report(dframe, subjects_dir=None, topdir=None):
         tmp=ax[1].axis('off')
         ax[2].imshow(img3)
         tmp=ax[2].axis('off')
-        figname = op.join(report_path, anon_subjid+'_coreg.png')
+        figname = op.join(png_path, anon_subjid+'_coreg.png')
         fig.savefig(figname, dpi=300,bbox_inches='tight')
         plt.close(fig)
 

@@ -1,5 +1,5 @@
 *.gca
 __pycache__
 build
-enigma_anonymize.egg-info
+*egg-info
 config.txt
