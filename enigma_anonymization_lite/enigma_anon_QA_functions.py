@@ -3,7 +3,7 @@
 """
 Created on Wed Mar 15 20:20:10 2023
 
-@author: nugenta
+@author: Jeff Stout and Allison Nugent and chatGPT
 """
 
 import PySimpleGUI as sg
@@ -26,7 +26,6 @@ status_color_dict = {'Unchecked':'grey',
                    'BAD':'red'
                    }
 PROJECT = 'BIDS_ANON_QA'
-GRID_SIZE=(3,6)
 NULL_IMAGE=op.join(enigma_anonymization_lite.__path__[0],'Null.png')
 QA_type='Coreg'
 
@@ -64,7 +63,7 @@ class sub_qa_info():
 # =============================================================================
 # Functions to Process images and set current status
 # =============================================================================
-def resize_image(image_path, resize=(200,200), status=None, 
+def resize_image(image_path, resize=[200,200], status=None, 
                  text_val=None): 
     '''
     Configure images to be used as PySimpleGUI buttons
@@ -100,13 +99,20 @@ def resize_image(image_path, resize=(200,200), status=None,
     cur_width, cur_height = img.size
     status_color = status_color_dict[status]
     new_width, new_height = resize
+    #print('resize window: new and cur height, new and current width')
+    #print(new_height, cur_height, new_width, cur_width)
     scale = min(new_height/cur_height, new_width/cur_width)
+    #print('scale is the minimum of new/cur')
+    #print(scale)
     img = img.resize((int(cur_width*scale), int(cur_height*scale)))
+    #print('new scaled width and height')
+    #print(int(cur_width*scale), int(cur_height*scale))
     img_draw = ImageDraw.Draw(img)
     img_draw.rectangle((0, 0, cur_width*scale, cur_height*scale), width=8, outline=status_color, fill=None)
 
     # get the matplotlib font 
-    fontpath=matplotlib.font_manager.findfont('Deja')
+    default_font_pattern = matplotlib.font_manager.FontProperties().get_fontconfig_pattern()
+    fontpath = matplotlib.font_manager.findfont(default_font_pattern)
     font = ImageFont.truetype(fontpath, size=40)
     img_draw.text((10, 10), text_val, align='center', fill='black')
     bio = io.BytesIO()
@@ -177,11 +183,14 @@ def build_status_dict(review_log):
     return subject_status_dict
 
 def create_window_layout(sub_obj_list=None, qa_type=None, 
-                             grid_size=GRID_SIZE, frame_start_idx=0, 
+                             grid_size=[3,6], frame_start_idx=0, 
                              resize_xy=(100,100)):
         layout = [[sg.Text(f'QA: {qa_type}')]]
         frame_end_idx=frame_start_idx+grid_size[0]*grid_size[1]
         current_idx = copy.deepcopy(frame_start_idx)
+        
+        resize_xy = ([int(resize_xy[0]), int(resize_xy[1])])
+        
         for i in range(grid_size[0]):
             row = []
             for j in range(grid_size[1]):
@@ -191,6 +200,8 @@ def create_window_layout(sub_obj_list=None, qa_type=None,
                     row.append(sg.Button(image_data=image_, border_width=5, key=None, 
                                      image_size=resize_xy, expand_x=True, expand_y=True))
                 else:
+                    #print('create layout - call resize image')
+                    #print(resize_xy)
                     image_ = resize_image(sub_obj_list[current_idx].image_r,
                                           resize=resize_xy, 
                                           status=sub_obj_list[current_idx].status,
@@ -227,12 +238,13 @@ def write_logfile(obj_list):
     for obj in obj_list:
         logging.info(f"SUBJECT:{obj.subject}:STATUS:{obj.status}")
 
-def run_gui(sub_obj_list,rows=GRID_SIZE[0],columns=GRID_SIZE[1],imgsize=200):
+def run_gui(sub_obj_list,rows=3,columns=2,imgsize=200):
     idx=0
-    GRID_SIZE=(rows,columns)
+    GRID_SIZE=[int(rows),int(columns)]
+    #print(GRID_SIZE)
     window = create_window_layout(sub_obj_list, qa_type=QA_type, 
                                   grid_size=GRID_SIZE,
-                                  frame_start_idx=idx,resize_xy=(imgsize,imgsize/2))
+                                  frame_start_idx=idx,resize_xy=(imgsize,imgsize))
     modify_frame=False
     while True:             # Event Loop
         event, values = window.read()
@@ -255,7 +267,7 @@ def run_gui(sub_obj_list,rows=GRID_SIZE[0],columns=GRID_SIZE[1],imgsize=200):
         if type(event) is sub_qa_info:
             event.button_set_status()
             image_ = resize_image(event.image_r,
-                          resize=(imgsize,imgsize/2) ,  
+                          resize=(int(imgsize),int(imgsize)) ,  
                           status=event.status,
                           text_val=event.subject
                           )
@@ -264,7 +276,7 @@ def run_gui(sub_obj_list,rows=GRID_SIZE[0],columns=GRID_SIZE[1],imgsize=200):
             window.close()
             window=create_window_layout(sub_obj_list,
                                             qa_type=QA_type, grid_size=GRID_SIZE,
-                                            frame_start_idx=idx,resize_xy=(imgsize,imgsize/2))
+                                            frame_start_idx=idx,resize_xy=(imgsize,imgsize))
             modify_frame = False
     
     window.close()

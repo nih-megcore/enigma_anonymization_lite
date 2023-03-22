@@ -3,16 +3,16 @@
 """
 Created on Wed Mar 15 19:53:12 2023
 
-@author: nugenta
+@author: Allison Nugent and Jeff Stout
 """
 
 import os.path as op
 import sys
 import argparse
 import glob
-from enigma_anonymization_lite.enigma_qa_functions import initialize, get_last_review, build_status_dict
-from enigma_anonymization_lite.enigma_qa_functions import run_gui
-from enigma_anonymization_lite.enigma_qa_functions import sub_qa_info
+from enigma_anonymization_lite.enigma_anon_QA_functions import initialize, get_last_review, build_status_dict
+from enigma_anonymization_lite.enigma_anon_QA_functions import run_gui
+from enigma_anonymization_lite.enigma_anon_QA_functions import sub_qa_info
 
 
 PROJECT = 'BIDS_ANON_QA'
