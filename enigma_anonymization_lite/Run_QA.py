@@ -31,15 +31,16 @@ if __name__ == '__main__':
     if not args.imgsize:
         imgsize=400
     else:
-        imgsize=args.rows
+        imgsize=args.imgsize
     if not args.rows:
         rows=4
     else:
-        imgsize=args.columns    
+        rows=args.rows    
     if not args.columns:
         columns=2
     else:
-        imgsize=args.imgsize    
+        columns=args.columns
+        
     if not args.bids_root:
         bids_root='bids_out'
     else:
