@@ -205,8 +205,8 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None,
     subj_logger.info(f'Original:{mri}')
     subj_logger.info(f'Processed:{anon_mri}')
     
-    brain_template=f'{topdir}/setup_code/talairach_mixed_with_skull.gca'
-    face_template=f'{topdir}/setup_code/face.gca'
+    brain_template=f'{topdir}/staging_dir/talairach_mixed_with_skull.gca'
+    face_template=f'{topdir}/staging_dir/face.gca'
     
     # Set subjects dir path for subcommand call
     os.environ['SUBJECTS_DIR']=subjects_dir
@@ -408,50 +408,47 @@ def process_meg_bids(dframe=None, topdir=None, linefreq=60, bidsonly=0):
     for idx, row in dframe.iterrows():
         
         subj_logger = get_subj_logger('sub-'+row.subjid, log_dir=f'{topdir}/logs')
-        if eroom==False:
-            try:
-                sub = row['subjid']
-                raw_fname = row['full_meg_path']
-                output_path = bids_dir            
-                raw = read_meg(raw_fname)  
-                raw.info['line_freq'] = linefreq 
-                ses=str(row['session'])
-                task = 'rest'
-                run = '01'
+        
+        try:
+            sub = row['subjid']
+            raw_fname = row['full_meg_path']
+            output_path = bids_dir            
+            raw = read_meg(raw_fname)  
+            raw.info['line_freq'] = linefreq 
+            ses=str(row['session'])
+            task = 'rest'
+            run = '01'
             
-                bids_path = BIDSPath(subject=sub, session=ses, task=task,
+            bids_path = BIDSPath(subject=sub, session=ses, task=task,
                                   run=run, root=output_path, suffix='meg')
                 
-                if bidsonly == 0:
-                    daysback = 40000 + randint(1, 1000)
-                    write_raw_bids(raw, bids_path, anonymize={'daysback':daysback, 'keep_his':False, 'keep_source':False},
-                          overwrite=True)
-                else:
-                    write_raw_bids(raw, bids_path, overwrite=True)
+            if bidsonly == 0:
+                daysback = 40000 + randint(1, 1000)
+                write_raw_bids(raw, bids_path, anonymize={'daysback':daysback, 'keep_his':False, 'keep_source':False},
+                      overwrite=True)
+            else:
+                write_raw_bids(raw, bids_path, overwrite=True)
             
-            except BaseException as e:
-                subj_logger.exception('MEG BIDS PROCESSING:', e)
-        else:
+        except BaseException as e:
+            subj_logger.exception('MEG BIDS PROCESSING:', e)
+            
+        if eroom == True:
            try:
-               sub = row['subjid']
-               raw_fname = row['full_meg_path']
                eroom_fname = row['empty_room']
-               output_path = bids_dir            
-               raw = read_meg(raw_fname)  
                eroom = read_meg(eroom_fname)
-               raw.info['line_freq'] = linefreq 
+               eroom.info['line_freq'] = linefreq 
                ses=str(row['session'])
-               task = 'rest'
+               task = 'emptyroom'
                run = '01'
                
                bids_path = BIDSPath(subject=sub, session=ses, task=task,
-                                      run=run, root=output_path, suffix='meg')
+                                     run=run, root=output_path, suffix='meg')
                if bidsonly == 0:
                    daysback = 40000 + randint(1, 1000)  
-                   write_raw_bids(raw, bids_path, anonymize={'daysback':daysback, 'keep_his':False, 'keep_source':False},
-                              empty_room=eroom, overwrite=True)
+                   write_raw_bids(eroom, bids_path, anonymize={'daysback':daysback, 'keep_his':False, 'keep_source':False},
+                         overwrite=True)
                else:
-                   write_raw_bids(raw, bids_path, empty_room=eroom, overwrite=True)
+                   write_raw_bids(eroom, bids_path, overwrite=True)
                 
            except BaseException as e:
                     subj_logger.exception('MEG BIDS PROCESSING:', e)   
