@@ -162,10 +162,36 @@ def get_subj_logger(subjid, log_dir=None):
 
 # Creates a symbolic link for the surface files in the bem directory
 
+def link_surf_anon(subjid=None, subjects_dir=None):
+    '''Link the surfaces to the BEM dir
+    Looks for lh.seghead and links to bem/outer_skin.surf
+    Tests for broken links and corrects'''
+    subjid = 'sub-' + subjid
+    anon_subjid = subjid+'_defaced'
+    s_bem_dir = f'{subjects_dir}/{anon_subjid}/bem'
+    src_file = f'{subjects_dir}/{anon_subjid}/surf/lh.seghead'
+    link_path = f'{s_bem_dir}/outer_skin.surf'
+    subj_logger = get_subj_logger(subjid)
+    if not os.path.exists(s_bem_dir):
+        os.mkdir(s_bem_dir)
+        subj_logger.info('creating bem directory')
+    if not os.path.exists(link_path):
+        try:
+            os.symlink(src_file, link_path)
+        except:
+            pass  #If broken symlink - this is fixed below
+    #Test and fix broken symlink
+    if not os.path.exists(os.readlink(link_path)):
+        subj_logger.info(f'Fixed broken link: {link_path}')
+        os.unlink(link_path)
+        os.symlink(src_file, link_path)
+    subj_logger.info('surface file linked to bem directory')
+
 def link_surf(subjid=None, subjects_dir=None):
     '''Link the surfaces to the BEM dir
     Looks for lh.seghead and links to bem/outer_skin.surf
     Tests for broken links and corrects'''
+    subjid = 'sub-' + subjid
     s_bem_dir = f'{subjects_dir}/{subjid}/bem'
     src_file = f'{subjects_dir}/{subjid}/surf/lh.seghead'
     link_path = f'{s_bem_dir}/outer_skin.surf'
@@ -184,7 +210,7 @@ def link_surf(subjid=None, subjects_dir=None):
         os.unlink(link_path)
         os.symlink(src_file, link_path)
     subj_logger.info('surface file linked to bem directory')
-
+    
 # This function uses freesurfer to deface the MRI files, then does basic freesurfer processing
 # on the subject to create the head surfaces required for QA 
 # note that this function is not called directly, it's called by a function that enables
@@ -205,6 +231,11 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None,
     subj_logger.info(f'Original:{mri}')
     subj_logger.info(f'Processed:{anon_mri}')
     
+    deface_error = 0
+    reconall_error = 0
+    mkheadsurf_error = 0
+    link_error = 0
+    
     brain_template=f'{topdir}/staging_dir/talairach_mixed_with_skull.gca'
     face_template=f'{topdir}/staging_dir/face.gca'
     
@@ -218,7 +249,8 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None,
     except BaseException as e:
         subj_logger.error('MRI_DEFACE')
         subj_logger.error(e)
-    
+        deface_error = 1
+        
     # only do the freesurfer processing for the defaced MRI
 
     try:
@@ -230,6 +262,7 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None,
     except BaseException as e:
         subj_logger.error('RECON_ALL IMPORT (ANON)')
         subj_logger.error(e)
+        reconall_error = 1
     
     try:
         subprocess.run(f'mkheadsurf -s {anon_subjid}'.split(), check=True)
@@ -243,12 +276,15 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None,
         except BaseException as e:
             subj_logger.error('MKHEADSURF (ANON)')
             subj_logger.error(e)    
+            mkheadsurf_error = 1
                 
     try:
-        link_surf(anon_subjid, subjects_dir=subjects_dir)      
+        link_surf_anon(subjid, subjects_dir=subjects_dir)      
     except BaseException as e:
         subj_logger.error('Link error on BEM')
         subj_logger.error(e)
+        link_error = 1
+    return (deface_error, reconall_error, mkheadsurf_error, link_error)
         
 # This is the same function as above, essentially, except it makes the scalp surfaces
 # without anonymizing the MRI
@@ -334,8 +370,11 @@ def parallel_make_scalp_surfaces(dframe, topdir=None, subjdir=None, njobs=1, bid
     total = tuple(sum(x) for x in zip(*result))
 
     logger.info('Finished parallel freesurfer processing for all subjects')
-    logger.info('Total of %d reconall errors, %d mkheadsurf errors, and %d link errors' % total)
-            
+    if bidsonly == 1:
+        logger.info('Total of %d reconall errors, %d mkheadsurf errors, and %d link errors' % total)
+    else:
+        logger.info('Total of %d deface errors, %d reconall errors, %d mkheadsurf errors, and %d link errors' % total)    
+        
 # function to read the MEG scans into mne python for processing
 
 def read_meg(meg_fname):
