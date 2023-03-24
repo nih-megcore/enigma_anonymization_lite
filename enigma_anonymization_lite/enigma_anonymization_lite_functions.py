@@ -312,8 +312,8 @@ def make_scalp_surfaces(mri=None, subjid=None, subjects_dir=None,
     try:
         subprocess.run(f'recon-all -i {mri} -s {subjid}'.split(),
                        check=True)
-        #subprocess.run(f'recon-all -autorecon1 -noskullstrip -s {subjid}'.split(),
-        #               check=True)
+        subprocess.run(f'recon-all -autorecon1 -noskullstrip -s {subjid}'.split(),
+                       check=True)
         subj_logger.info('RECON_ALL IMPORT INISHED')
     except BaseException as e:
         subj_logger.error('RECON_ALL IMPORT')
@@ -342,7 +342,7 @@ def make_scalp_surfaces(mri=None, subjid=None, subjects_dir=None,
         link_error = 1
     return (reconall_error, mkheadsurf_error, link_error)
         
-def parallel_make_scalp_surfaces(dframe, topdir=None, subjdir=None, njobs=1, bidsonly=0):
+def parallel_make_scalp_surfaces(dframe, topdir=None, subjects_dir=None, njobs=1, bidsonly=0):
     logger = logging.getLogger('process_logger')
     ## SETUP MAKE_SCALP_SURFACES
     inframe = dframe.loc[:,['staged_mri','subjid']]

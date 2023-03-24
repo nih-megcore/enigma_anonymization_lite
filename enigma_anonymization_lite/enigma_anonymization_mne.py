@@ -86,7 +86,7 @@ if __name__=='__main__':
     
     # do the basic freesurfer processing to deface the data
     
-    parallel_make_scalp_surfaces(dframe=mri_frame, topdir=topdir, subjdir=subjects_dir, njobs=njobs, bidsonly=bidsonly)
+    parallel_make_scalp_surfaces(dframe=mri_frame, topdir=topdir, subjects_dir=subjects_dir, njobs=njobs, bidsonly=bidsonly)
     
     # create the BIDS structure for the MRI scans
     
