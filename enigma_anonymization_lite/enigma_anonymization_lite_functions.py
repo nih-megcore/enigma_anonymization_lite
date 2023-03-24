@@ -80,12 +80,12 @@ def initialize(topdir=None):
     log_dir = f'{topdir}/logs'
     if not os.path.exists(log_dir): os.mkdir(log_dir)
     
-    logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', 
+    logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', 
                         level=logging.INFO)
     
     #global logger
     
-    fmt = '%(asctime)s - %(levelname)s - %(message)s'
+    fmt = '%(asctime)s :: %(levelname)s :: %(message)s'
     logger = logging.getLogger('process_logger')
     fileHandle = logging.FileHandler(f'{log_dir}/process_logger.txt')
     fileHandle.setLevel(logging.INFO)
@@ -145,7 +145,7 @@ def get_subj_logger(subjid, log_dir=None):
     '''Return the subject specific logger.
     This is particularly useful in the multiprocessing where logging is not
     necessarily in order'''
-    fmt = '%(asctime)s - %(levelname)s - %(message)s'
+    fmt = '%(asctime)s :: %(levelname)s :: %(message)s'
     subj_logger = logging.getLogger(subjid)
     if subj_logger.handlers != []:
         # Check to make sure that more than one file handler is not added
