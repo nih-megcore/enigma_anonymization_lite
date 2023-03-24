@@ -134,7 +134,7 @@ def initialize(bids_root):
         history_log=[i[:-1] for i in history_log if i[-1:]=='\n']
         return_log=True
     logging.basicConfig(filename=logfile, encoding='utf-8', level=logging.INFO, 
-                        format='%(asctime)s:%(levelname)s:%(message)s')
+                        format='%(asctime)s::%(levelname)s::%(message)s')
     logging.info("REVIEW_START")
     if return_log==True:
         return history_log
@@ -151,7 +151,7 @@ def get_last_review(history_log):
     rev_start_idx=0
     rev_end_idx=0
     for idx, line in enumerate(history_log):
-        cond=line.split('INFO:')[-1]
+        cond=line.split('INFO::')[-1]
         if cond=='REVIEW_START':
             rev_start_idx=idx
         elif cond=='REVIEW_FINISH':
@@ -160,7 +160,7 @@ def get_last_review(history_log):
     return last_review
         
 def get_subject_status(logline_input):
-    tmp=logline_input.split(':')
+    tmp=logline_input.split('::')
     datetimeval=':'.join(tmp[0:3])
     subject, status = None, None #Preinitialize
     if 'SUBJECT' in tmp:
@@ -236,7 +236,7 @@ def write_logfile(obj_list):
 
     '''
     for obj in obj_list:
-        logging.info(f"SUBJECT:{obj.subject}:STATUS:{obj.status}")
+        logging.info(f"SUBJECT::{obj.subject}::STATUS::{obj.status}")
 
 def run_gui(sub_obj_list,rows=3,columns=2,imgsize=200):
     idx=0
