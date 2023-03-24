@@ -21,13 +21,14 @@ import matplotlib.pyplot as plt
 from mne_bids import write_anat, BIDSPath, write_raw_bids, get_anat_landmarks 
 from random import randint
  
-#%% Utility functions
+# %% Utility functions
 
 # This one downloads the files from freesurfer that are needed for the defacing algorithm
 # They will be placed in the staging directory
 
 def download_deface_templates(code_topdir):
     '''Download and unzip the templates for freesurfer defacing algorithm'''
+    logger = logging.getLogger('process_logger')
     if not op.exists(code_topdir): os.mkdir(code_topdir)
     if not op.exists(f'{code_topdir}/face.gca'):
         wget.download('https://surfer.nmr.mgh.harvard.edu/pub/dist/mri_deface/face.gca.gz',
@@ -71,7 +72,7 @@ def initialize(topdir=None):
     freesurfer_dir = f'{topdir}/bids_out/derivatives/freesurfer'
     if not os.path.exists(freesurfer_dir): os.mkdir(freesurfer_dir)
     subjects_dir = f'{topdir}/bids_out/derivatives/freesurfer/subjects'
-    if not os.path.exists(subjects_dir): os.mkdir(freesurfer_dir)
+    if not os.path.exists(subjects_dir): os.mkdir(subjects_dir)
     os.environ['SUBJECTS_DIR'] = subjects_dir
     
     # Create log directory
@@ -79,13 +80,18 @@ def initialize(topdir=None):
     log_dir = f'{topdir}/logs'
     if not os.path.exists(log_dir): os.mkdir(log_dir)
     
-    logging.basicConfig(filename=f'{log_dir}/process_logger.txt',
-                        format='%(asctime)s - %(levelname)s - %(message)s', 
+    logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', 
                         level=logging.INFO)
-    global logger
-    logger = logging.getLogger()
+    
+    #global logger
+    
+    fmt = '%(asctime)s - %(levelname)s - %(message)s'
+    logger = logging.getLogger('process_logger')
     fileHandle = logging.FileHandler(f'{log_dir}/process_logger.txt')
-    logger.addHandler(fileHandle)
+    fileHandle.setLevel(logging.INFO)
+    fileHandle.setFormatter(logging.Formatter(fmt))
+    logger.addHandler(fileHandle)    
+    logger.info('Initializing global enigma_anonymization log')
     
     #Directory to save html files
     global QA_dir
@@ -127,6 +133,10 @@ def stage_mris(topdir, dframe):
         mri_frame_temp = pd.DataFrame([[subjid, out_fname]],
                         columns=['subjid','staged_mri'])
         mri_frame=pd.concat([mri_frame,mri_frame_temp])
+        subj_logger = logging.getLogger(bidsid)
+        subj_logger.info('MRI staged and ready for processing')
+    logger = logging.getLogger('process_logger')
+    logger.info('MRIs staged and ready for processing')
     return mri_frame
 
 # This function initializes a logger for each subject
@@ -135,17 +145,20 @@ def get_subj_logger(subjid, log_dir=None):
     '''Return the subject specific logger.
     This is particularly useful in the multiprocessing where logging is not
     necessarily in order'''
-    logger = logging.getLogger(subjid)
-    if logger.handlers != []:
+    fmt = '%(asctime)s - %(levelname)s - %(message)s'
+    subj_logger = logging.getLogger(subjid)
+    if subj_logger.handlers != []:
         # Check to make sure that more than one file handler is not added
-        tmp_ = [type(i) for i in logger.handlers ]
+        tmp_ = [type(i) for i in subj_logger.handlers ]
         if logging.FileHandler in tmp_:
-            return logger
-    fileHandle = logging.FileHandler(f'{log_dir}/{subjid}_log.txt')
-    fmt = logging.Formatter(fmt=f'%(asctime)s - %(levelname)s - {subjid} - %(message)s')
-    fileHandle.setFormatter(fmt=fmt) 
-    logger.addHandler(fileHandle)
-    return logger
+            return subj_logger
+    else:
+        fileHandle = logging.FileHandler(f'{log_dir}/{subjid}_log.txt')
+        fileHandle.setLevel(logging.INFO)
+        fileHandle.setFormatter(logging.Formatter(fmt)) 
+        subj_logger.addHandler(fileHandle)
+        subj_logger.info('Initializing subject level enigma_anonymization log')
+    return subj_logger
 
 # Creates a symbolic link for the surface files in the bem directory
 
@@ -156,8 +169,10 @@ def link_surf(subjid=None, subjects_dir=None):
     s_bem_dir = f'{subjects_dir}/{subjid}/bem'
     src_file = f'{subjects_dir}/{subjid}/surf/lh.seghead'
     link_path = f'{s_bem_dir}/outer_skin.surf'
+    subj_logger = get_subj_logger(subjid)
     if not os.path.exists(s_bem_dir):
         os.mkdir(s_bem_dir)
+        subj_logger.info('creating bem directory')
     if not os.path.exists(link_path):
         try:
             os.symlink(src_file, link_path)
@@ -165,9 +180,10 @@ def link_surf(subjid=None, subjects_dir=None):
             pass  #If broken symlink - this is fixed below
     #Test and fix broken symlink
     if not os.path.exists(os.readlink(link_path)):
-        logger.info(f'Fixed broken link: {link_path}')
+        subj_logger.info(f'Fixed broken link: {link_path}')
         os.unlink(link_path)
         os.symlink(src_file, link_path)
+    subj_logger.info('surface file linked to bem directory')
 
 # This function uses freesurfer to deface the MRI files, then does basic freesurfer processing
 # on the subject to create the head surfaces required for QA 
@@ -185,7 +201,7 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None,
     prefix, ext = os.path.splitext(mri)
     anon_mri = prefix+'_defaced'+ext 
     log_dir=f'{topdir}/logs'
-    subj_logger=get_subj_logger(subjid, log_dir=log_dir)
+    subj_logger=get_subj_logger('sub-'+subjid, log_dir=log_dir)
     subj_logger.info(f'Original:{mri}')
     subj_logger.info(f'Processed:{anon_mri}')
     
@@ -233,40 +249,114 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None,
     except BaseException as e:
         subj_logger.error('Link error on BEM')
         subj_logger.error(e)
+        
+# This is the same function as above, essentially, except it makes the scalp surfaces
+# without anonymizing the MRI
+        
+def make_scalp_surfaces(mri=None, subjid=None, subjects_dir=None, 
+                             topdir=None):
+    '''
+    Process scalp surfaces for subjid and anon_subjid
+    Render the coregistration for the subjid
+    Render the defaced Scalp for the subjid_anon
+    '''
+    subjid = 'sub-'+subjid
+    log_dir=f'{topdir}/logs'
+    subj_logger=get_subj_logger(subjid, log_dir=log_dir)
+    subj_logger.info('MRI WILL NOT BE DEFACED, DO NOT SHARE RAW DATA')
+    subj_logger.info(f'Original:{mri}')
+    
+    reconall_error = 0
+    mkheadsurf_error = 0
+    link_error = 0
+    
+    # Set subjects dir path for subcommand call
+    os.environ['SUBJECTS_DIR']=subjects_dir
 
-def parallel_make_scalp_surfaces(dframe, topdir=None, subjdir=None, njobs=1):
+    try:
+        subprocess.run(f'recon-all -i {mri} -s {subjid}'.split(),
+                       check=True)
+        #subprocess.run(f'recon-all -autorecon1 -noskullstrip -s {subjid}'.split(),
+        #               check=True)
+        subj_logger.info('RECON_ALL IMPORT INISHED')
+    except BaseException as e:
+        subj_logger.error('RECON_ALL IMPORT')
+        subj_logger.error(e)
+        reconall_error = 1
+    
+    try:
+        subprocess.run(f'mkheadsurf -s {subjid}'.split(), check=True)
+        subj_logger.info('MKHEADSURF FINISHED')
+    except:
+        try:
+            proc_cmd = f"mkheadsurf -i {op.join(subjects_dir, subjid, 'mri', 'T1.mgz')} \
+                -o {op.join(subjects_dir, subjid, 'mri', 'seghead.mgz')} \
+                -surf {op.join(subjects_dir, subjid, 'surf', 'lh.seghead')}"
+            subprocess.run(proc_cmd.split(), check=True)
+        except BaseException as e:
+            subj_logger.error('MKHEADSURF (ANON)')
+            subj_logger.error(e)    
+            mkheadsurf_error = 1
+                
+    try:
+        link_surf(subjid, subjects_dir=subjects_dir)      
+    except BaseException as e:
+        subj_logger.error('Link error on BEM')
+        subj_logger.error(e)
+        link_error = 1
+    return (reconall_error, mkheadsurf_error, link_error)
+        
+def parallel_make_scalp_surfaces(dframe, topdir=None, subjdir=None, njobs=1, bidsonly=0):
+    logger = logging.getLogger('process_logger')
     ## SETUP MAKE_SCALP_SURFACES
     inframe = dframe.loc[:,['staged_mri','subjid']]
     inframe['subjects_dir'] = subjects_dir
     inframe['topdir']  = topdir
     #Remove duplicates over sessions
     inframe.drop_duplicates(subset=['staged_mri','subjid'], inplace=True)
-    print('opening pool')
-    with Pool(processes=njobs) as pool:
-        pool.starmap(make_scalp_surfaces_anon,
+    logger.info('Opening parallel pool for freesurfer processing')
+    if bidsonly==1:
+        with Pool(processes=njobs) as pool:
+            result = pool.starmap(make_scalp_surfaces,
                           inframe.values)
-        try: 
-            del inframe 
-        except:
-            pass
+            try: 
+                del inframe 
+            except:
+                pass
+    else:
+        with Pool(processes=njobs) as pool:
+            result = pool.starmap(make_scalp_surfaces_anon,
+                          inframe.values)
+            try: 
+                del inframe 
+            except:
+                pass
+    total = tuple(sum(x) for x in zip(*result))
 
+    logger.info('Finished parallel freesurfer processing for all subjects')
+    logger.info('Total of %d reconall errors, %d mkheadsurf errors, and %d link errors' % total)
+            
 # function to read the MEG scans into mne python for processing
 
 def read_meg(meg_fname):
+
     if meg_fname[-1]==os.path.sep:
         meg_fname=meg_fname[:-1]
     _, ext = os.path.splitext(meg_fname)
     if ext == '.fif':
         return mne.io.read_raw_fif(meg_fname)
+    
     if ext == '.ds':
         return mne.io.read_raw_ctf(meg_fname)
         
-def process_mri_bids(dframe=None, topdir=None):
+def process_mri_bids(dframe=None, topdir=None, bidsonly=0):
+    logger = logging.getLogger('process_logger')
+    logger.info('Populating BIDS structure with MRI scans')
     bids_dir = f'{topdir}/bids_out'
     if not os.path.exists(bids_dir): os.mkdir(bids_dir)
 
     for idx, row in dframe.iterrows():
-            subj_logger = get_subj_logger(row.subjid, log_dir=f'{topdir}/logs')
+            subj_logger = get_subj_logger('sub-'+row.subjid, log_dir=f'{topdir}/logs')
             try:
                 sub=row['subjid']
                 ses=str(row['session'])
@@ -279,11 +369,17 @@ def process_mri_bids(dframe=None, topdir=None):
             
                 t1w_bids_path = \
                     BIDSPath(subject=sub, session=ses, root=output_path, suffix='T1w')
+                    
+                if bidsonly == 1:
+                    fs_subject='sub-'+row['subjid']
+                else:
+                    fs_subject='sub-'+row['subjid']+'_defaced'
+                    
                 landmarks = get_anat_landmarks(
                     image=t1_path,
                     info=raw.info,
                     trans=trans,
-                    fs_subject='sub-'+row['subjid']+'_defaced',
+                    fs_subject=fs_subject,
                     fs_subjects_dir=subjects_dir
                     )
                         # Write regular
@@ -297,8 +393,11 @@ def process_mri_bids(dframe=None, topdir=None):
             #anat_dir = t1w_bids_path.directory   
             except BaseException as e:
                 subj_logger.exception('MRI BIDS PROCESSING', e)
+    logger.info('Finished MRI scans')
             
-def process_meg_bids(dframe=None, topdir=None, linefreq=60):
+def process_meg_bids(dframe=None, topdir=None, linefreq=60, bidsonly=0):
+    logger = logging.getLogger('process_logger')
+    logger.info('Populating BIDS structure with MEG recordings')
     bids_dir = f'{topdir}/bids_out'
     if not os.path.exists(bids_dir): os.mkdir(bids_dir)
     if set(['empty_room']).issubset(dframe.columns):
@@ -308,7 +407,7 @@ def process_meg_bids(dframe=None, topdir=None, linefreq=60):
         
     for idx, row in dframe.iterrows():
         
-        subj_logger = get_subj_logger(row.subjid, log_dir=f'{topdir}/logs')
+        subj_logger = get_subj_logger('sub-'+row.subjid, log_dir=f'{topdir}/logs')
         if eroom==False:
             try:
                 sub = row['subjid']
@@ -323,10 +422,12 @@ def process_meg_bids(dframe=None, topdir=None, linefreq=60):
                 bids_path = BIDSPath(subject=sub, session=ses, task=task,
                                   run=run, root=output_path, suffix='meg')
                 
-                daysback = 40000 + randint(1, 1000)
-            
-                write_raw_bids(raw, bids_path, anonymize={'daysback':daysback, 'keep_his':False, 'keep_source':False},
+                if bidsonly == 0:
+                    daysback = 40000 + randint(1, 1000)
+                    write_raw_bids(raw, bids_path, anonymize={'daysback':daysback, 'keep_his':False, 'keep_source':False},
                           overwrite=True)
+                else:
+                    write_raw_bids(raw, bids_path, overwrite=True)
             
             except BaseException as e:
                 subj_logger.exception('MEG BIDS PROCESSING:', e)
@@ -343,18 +444,22 @@ def process_meg_bids(dframe=None, topdir=None, linefreq=60):
                task = 'rest'
                run = '01'
                
-               daysback = 40000 + randint(1, 1000)
-                
                bids_path = BIDSPath(subject=sub, session=ses, task=task,
                                       run=run, root=output_path, suffix='meg')
-                
-               write_raw_bids(raw, bids_path, anonymize={'daysback':daysback, 'keep_his':False, 'keep_source':False},
+               if bidsonly == 0:
+                   daysback = 40000 + randint(1, 1000)  
+                   write_raw_bids(raw, bids_path, anonymize={'daysback':daysback, 'keep_his':False, 'keep_source':False},
                               empty_room=eroom, overwrite=True)
+               else:
+                   write_raw_bids(raw, bids_path, empty_room=eroom, overwrite=True)
                 
            except BaseException as e:
                     subj_logger.exception('MEG BIDS PROCESSING:', e)   
+    logger.info('Finished MEG recordings')
             
-def loop_QA_report(dframe, subjects_dir=None, topdir=None):
+def loop_QA_report(dframe, subjects_dir=None, topdir=None, bidsonly=0):
+    logger = logging.getLogger('process_logger')
+    logger.info('Beginning creation of QA reports')
     from mne.viz._brain.view import views_dicts
     from mne.viz import set_3d_view
     from mne.viz.backends.renderer import backend
@@ -362,32 +467,36 @@ def loop_QA_report(dframe, subjects_dir=None, topdir=None):
     png_path=op.join(topdir,'bids_out/derivatives/BIDS_ANON_QA/')
     report_path=op.join(topdir, 'bids_out/derivatives/BIDS_ANON_QA/Coreg_QA_report.html')
     rep = mne.Report()
+
     for idx, row in dframe.iterrows():
         subjid=row['subjid']
-        anon_subjid = 'sub-'+subjid+'_defaced'    
+        if bidsonly == 0:
+            subject = 'sub-'+subjid+'_defaced'
+        else:
+            subject = 'sub-'+subjid
         meg_fname=row['full_meg_path']
         raw = read_meg(meg_fname)
         subjects_dir=subjects_dir               
         trans=row['trans_fname']
-        title_text = 'Check coreg and deface for subjid %s' % anon_subjid
-        subj_logger=get_subj_logger(subjid, log_dir=f'{topdir}/logs')
+        title_text = 'Check coreg and deface (if performed) for subjid %s' % subject
+        subj_logger=get_subj_logger('sub-'+subjid, log_dir=f'{topdir}/logs')
         try:
             subj_logger.info('Running QA report')
-            rep.add_trans(trans=trans, info=raw.info, subject=anon_subjid,
+            rep.add_trans(trans=trans, info=raw.info, subject=subject,
                     subjects_dir=subjects_dir, alpha=1.0, title=title_text) 
         except BaseException as e:
             subj_logger.error(f'make_QA_report: \n{e}')
-        fig = mne.viz.plot_alignment(info=raw.info, trans=trans, subject=anon_subjid, 
+        fig = mne.viz.plot_alignment(info=raw.info, trans=trans, subject=subject, 
                     subjects_dir=subjects_dir)
         set_3d_view(fig,**views_dicts['both']['frontal'])
         img1=fig.plotter.screenshot()
         fig.plotter.close()
-        fig = mne.viz.plot_alignment(info=raw.info, trans=trans, subject=anon_subjid, 
+        fig = mne.viz.plot_alignment(info=raw.info, trans=trans, subject=subject, 
                     subjects_dir=subjects_dir)
         set_3d_view(fig,**views_dicts['both']['lateral'])
         img2=fig.plotter.screenshot()
         fig.plotter.close()
-        fig = mne.viz.plot_alignment(info=raw.info, trans=trans, subject=anon_subjid, 
+        fig = mne.viz.plot_alignment(info=raw.info, trans=trans, subject=subject, 
                     subjects_dir=subjects_dir)
         set_3d_view(fig,**views_dicts['both']['medial'])
         img3=fig.plotter.screenshot()
@@ -399,8 +508,9 @@ def loop_QA_report(dframe, subjects_dir=None, topdir=None):
         tmp=ax[1].axis('off')
         ax[2].imshow(img3)
         tmp=ax[2].axis('off')
-        figname = op.join(png_path, anon_subjid+'_coreg.png')
+        figname = op.join(png_path, subject+'_coreg.png')
         fig.savefig(figname, dpi=300,bbox_inches='tight')
         plt.close(fig)
+    logger.info('Finished QA reports')
 
     rep.save(fname=report_path, overwrite=True)

@@ -30,6 +30,7 @@ if __name__=='__main__':
     parser.add_argument('-csvfile', help='''The name of the csv file with paths and filenames''')
     parser.add_argument('-njobs',help='''The number of jobs for parallel processing, defaults to one''', type=int)
     parser.add_argument('-linefreq',help='''The linefrequency for the country of data collection''', type=int)
+    parser.add_argument('-bidsonly',help='''Run bidsification only without anonymization''', action='store_true')
     parser.description='''This python script implements anonymization and BIDSification of a dataset. We hope you enjoy using it as much as we enjoyed making it.'''
     
     args = parser.parse_args()
@@ -60,6 +61,10 @@ if __name__=='__main__':
         linefreq=60
     else:
         linefreq=args.linefreq
+    
+    bidsonly=0
+    if args.bidsonly:
+        bidsonly = 1
         
     initialize(topdir=topdir)
     subjects_dir=os.environ['SUBJECTS_DIR']
@@ -81,17 +86,17 @@ if __name__=='__main__':
     
     # do the basic freesurfer processing to deface the data
     
-    parallel_make_scalp_surfaces(dframe=mri_frame, topdir=topdir, subjdir=subjects_dir, njobs=njobs)
+    parallel_make_scalp_surfaces(dframe=mri_frame, topdir=topdir, subjdir=subjects_dir, njobs=njobs, bidsonly=bidsonly)
     
     # create the BIDS structure for the MRI scans
     
-    process_mri_bids(dframe=dframe, topdir=topdir)
+    process_mri_bids(dframe=dframe, topdir=topdir, bidsonly=bidsonly)
     
     # create the BIDS structure for the MEG scans - if there's an empty room dataset, do that one first
     
-    process_meg_bids(dframe=dframe, topdir=topdir, linefreq=60)
+    process_meg_bids(dframe=dframe, topdir=topdir, linefreq=60, bidsonly=bidsonly)
     
     # make the QA report document
     
-    loop_QA_report(dframe, subjects_dir=subjects_dir, topdir=topdir)
+    loop_QA_report(dframe, subjects_dir=subjects_dir, topdir=topdir, bidsonly=bidsonly)
     
