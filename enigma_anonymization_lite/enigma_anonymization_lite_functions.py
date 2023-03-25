@@ -549,4 +549,4 @@ def loop_QA_report(dframe, subjects_dir=None, topdir=None, bidsonly=0):
         plt.close(fig)
     logger.info('Finished QA reports')
 
-    rep.save(fname=report_path, overwrite=True)
+    rep.save(fname=report_path, open_browser=False, overwrite=True)
