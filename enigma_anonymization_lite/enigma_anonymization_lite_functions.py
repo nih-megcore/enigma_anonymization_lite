@@ -124,16 +124,22 @@ def stage_mris(topdir, dframe):
     if not os.path.exists(staging_dir): os.mkdir(staging_dir)
     mri_frame = pd.DataFrame(columns=['subjid','staged_mri'])
     for idx,row in dframe.iterrows():
-        in_fname = row['full_mri_path']
         subjid = row['subjid']
-        bidsid = 'sub-'+subjid
-        fname = '%s_anat.nii' % (bidsid)
+        bidsid = 'sub-'+subjid        
+        subj_logger = logging.getLogger(bidsid)      
+        in_fname = row['full_mri_path']
+        if in_fname.split('.')[-1]=='gz':
+            fname = '%s_anat.nii.gz' % (bidsid)
+        elif in_fname.split('.')[-1]=='nii':
+            fname = '%s_anat.nii' % (bidsid)
+        else:
+            subj_logger.error('MRI must be .nii or .nii.gz')
         out_fname = op.join(staging_dir,fname)
         shutil.copy(in_fname, out_fname) 
         mri_frame_temp = pd.DataFrame([[subjid, out_fname]],
                         columns=['subjid','staged_mri'])
         mri_frame=pd.concat([mri_frame,mri_frame_temp])
-        subj_logger = logging.getLogger(bidsid)
+        
         subj_logger.info('MRI staged and ready for processing')
     logger = logging.getLogger('process_logger')
     logger.info('MRIs staged and ready for processing')

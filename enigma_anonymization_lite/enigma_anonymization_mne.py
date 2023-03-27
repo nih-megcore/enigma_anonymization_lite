@@ -11,6 +11,7 @@ import os, os.path as op
 import logging
 import argparse
 import sys
+import subprocess
 
 import matplotlib
 matplotlib.use('Qt5agg'); 
@@ -68,6 +69,11 @@ if __name__=='__main__':
         
     initialize(topdir=topdir)
     subjects_dir=os.environ['SUBJECTS_DIR']
+    
+    try: 
+        subprocess.check_output(['which','recon-all'])
+    except:
+        raise ValueError("Can't find recon-all, install or initialize freesurfer")
 
     # read the csv file containing all the path information and check to see that all the required columns are present
 
