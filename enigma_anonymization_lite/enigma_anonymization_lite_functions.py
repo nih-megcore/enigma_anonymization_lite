@@ -177,6 +177,7 @@ def link_surf_anon(subjid=None, subjects_dir=None):
     s_bem_dir = f'{subjects_dir}/{anon_subjid}/bem'
     src_file = f'{subjects_dir}/{anon_subjid}/surf/lh.seghead'
     link_path = f'{s_bem_dir}/outer_skin.surf'
+    print('!! link_surf_anon getting subject logger for' + subjid)
     subj_logger = get_subj_logger(subjid)
     if not os.path.exists(s_bem_dir):
         os.mkdir(s_bem_dir)
@@ -201,6 +202,7 @@ def link_surf(subjid=None, subjects_dir=None):
     s_bem_dir = f'{subjects_dir}/{subjid}/bem'
     src_file = f'{subjects_dir}/{subjid}/surf/lh.seghead'
     link_path = f'{s_bem_dir}/outer_skin.surf'
+    print('!! link_surf getting subject logger for '+subjid)
     subj_logger = get_subj_logger(subjid)
     if not os.path.exists(s_bem_dir):
         os.mkdir(s_bem_dir)
@@ -231,8 +233,12 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None,
     '''
     anon_subjid = 'sub-'+subjid+'_defaced'
     prefix, ext = os.path.splitext(mri)
+    if ext=='.gz':   # for a .nii.gz mri, split againt to remove the .nii
+        prefix, ext = os.path.splitext(prefix)
+        ext = '.nii.gz'
     anon_mri = prefix+'_defaced'+ext 
     log_dir=f'{topdir}/logs'
+    print('!! make_scalp_surfaces_anon getting subject logger for sub-'+subjid)
     subj_logger=get_subj_logger('sub-'+subjid, log_dir=log_dir)
     subj_logger.info(f'Original:{mri}')
     subj_logger.info(f'Processed:{anon_mri}')
@@ -257,8 +263,11 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None,
         subj_logger.error(e)
         deface_error = 1
         
+    log_fname = anon_mri.split('/')[-1].split('.')[0] + '.nii.log'
+    shutil.move(log_fname, 'logs')
+    
     # only do the freesurfer processing for the defaced MRI
-
+        
     try:
         subprocess.run(f'recon-all -i {anon_mri} -s {anon_subjid}'.split(),
                        check=True)
@@ -304,6 +313,7 @@ def make_scalp_surfaces(mri=None, subjid=None, subjects_dir=None,
     '''
     subjid = 'sub-'+subjid
     log_dir=f'{topdir}/logs'
+    print('!! make_scalp_surfaces getting subject logger for '+subjid)
     subj_logger=get_subj_logger(subjid, log_dir=log_dir)
     subj_logger.info('MRI WILL NOT BE DEFACED, DO NOT SHARE RAW DATA')
     subj_logger.info(f'Original:{mri}')
@@ -401,6 +411,7 @@ def process_mri_bids(dframe=None, topdir=None, bidsonly=0):
     if not os.path.exists(bids_dir): os.mkdir(bids_dir)
 
     for idx, row in dframe.iterrows():
+            print('!! process_mri_bids getting subject logger for sub-' + row.subjid)
             subj_logger = get_subj_logger('sub-'+row.subjid, log_dir=f'{topdir}/logs')
             try:
                 sub=row['subjid']
@@ -410,8 +421,12 @@ def process_mri_bids(dframe=None, topdir=None, bidsonly=0):
                 raw = read_meg(row['full_meg_path'])          #FIX currently should be full_meg_path - need to verify anon
                 trans = mne.read_trans(row['trans_fname'])
                 t1_fname = 'sub-%s_anat_defaced.nii' % sub
-                t1_path = op.join(topdir,'staging_dir',t1_fname)
-            
+                if op.exists(op.join(staging_dir, t1_fname)):
+                    t1_path = op.join(topdir,'staging_dir',t1_fname)
+                else:
+                    t1_fname = 'sub-%s_anat_defaced.nii.gz' % sub
+                    t1_path = op.join(topdir,'staging_dir',t1_fname)                  
+                
                 t1w_bids_path = \
                     BIDSPath(subject=sub, session=ses, root=output_path, suffix='T1w')
                     
@@ -452,6 +467,7 @@ def process_meg_bids(dframe=None, topdir=None, linefreq=60, bidsonly=0):
         
     for idx, row in dframe.iterrows():
         
+        print('!! process_meg_bids getting subject logger for sub-' + row.subjid)
         subj_logger = get_subj_logger('sub-'+row.subjid, log_dir=f'{topdir}/logs')
         
         try:
@@ -468,7 +484,7 @@ def process_meg_bids(dframe=None, topdir=None, linefreq=60, bidsonly=0):
                                   run=run, root=output_path, suffix='meg')
                 
             if bidsonly == 0:
-                daysback = 40000 + randint(1, 1000)
+                daysback = 35000 + randint(1, 1000)
                 write_raw_bids(raw, bids_path, anonymize={'daysback':daysback, 'keep_his':False, 'keep_source':False},
                       overwrite=True)
             else:
@@ -489,7 +505,7 @@ def process_meg_bids(dframe=None, topdir=None, linefreq=60, bidsonly=0):
                bids_path = BIDSPath(subject=sub, session=ses, task=task,
                                      run=run, root=output_path, suffix='meg')
                if bidsonly == 0:
-                   daysback = 40000 + randint(1, 1000)  
+                   daysback = 35000 + randint(1, 1000)  
                    write_raw_bids(eroom, bids_path, anonymize={'daysback':daysback, 'keep_his':False, 'keep_source':False},
                          overwrite=True)
                else:
@@ -521,6 +537,7 @@ def loop_QA_report(dframe, subjects_dir=None, topdir=None, bidsonly=0):
         subjects_dir=subjects_dir               
         trans=row['trans_fname']
         title_text = 'Check coreg and deface (if performed) for subjid %s' % subject
+        print('!! log_QA_report getting subject logger for sub-'+subjid)
         subj_logger=get_subj_logger('sub-'+subjid, log_dir=f'{topdir}/logs')
         try:
             subj_logger.info('Running QA report')
