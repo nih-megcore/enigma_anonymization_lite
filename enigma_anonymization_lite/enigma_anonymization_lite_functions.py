@@ -18,8 +18,12 @@ import subprocess
 from multiprocess import Pool
 import mne
 import matplotlib.pyplot as plt
+import mne_bids
 from mne_bids import write_anat, BIDSPath, write_raw_bids, get_anat_landmarks 
 from random import randint
+
+from enigma_anonymization_lite.utils import _sidecar_json_patched
+mne_bids.write._sidecar_json = _sidecar_json_patched
  
 # %% Utility functions
 
@@ -259,8 +263,12 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None,
         subj_logger.error('MRI_DEFACE')
         subj_logger.error(e)
         deface_error = 1
+    
+    if anon_mri.split('/')[-1].split('.')[-1] == 'gz':
+        log_fname = anon_mri.split('/')[-1].split('.')[0] + '.nii.log'
+    else: 
+        log_fname = anon_mri.split('/')[-1].split('.')[0] + '.log'
         
-    log_fname = anon_mri.split('/')[-1].split('.')[0] + '.nii.log'
     shutil.move(log_fname, 'logs/'+log_fname)
     
     # only do the freesurfer processing for the defaced MRI
@@ -308,9 +316,9 @@ def make_scalp_surfaces(mri=None, subjid=None, subjects_dir=None,
     Render the coregistration for the subjid
     Render the defaced Scalp for the subjid_anon
     '''
-    subjid = 'sub-'+subjid
+    bids_subjid = 'sub-'+subjid
     log_dir=f'{topdir}/logs'
-    subj_logger=get_subj_logger(subjid, log_dir=log_dir)
+    subj_logger=get_subj_logger(bids_subjid, log_dir=log_dir)
     subj_logger.info('MRI WILL NOT BE DEFACED, DO NOT SHARE RAW DATA')
     subj_logger.info(f'Original:{mri}')
     
@@ -322,9 +330,9 @@ def make_scalp_surfaces(mri=None, subjid=None, subjects_dir=None,
     os.environ['SUBJECTS_DIR']=subjects_dir
 
     try:
-        subprocess.run(f'recon-all -i {mri} -s {subjid}'.split(),
+        subprocess.run(f'recon-all -i {mri} -s {bids_subjid}'.split(),
                        check=True)
-        subprocess.run(f'recon-all -autorecon1 -noskullstrip -s {subjid}'.split(),
+        subprocess.run(f'recon-all -autorecon1 -noskullstrip -s {bids_subjid}'.split(),
                        check=True)
         subj_logger.info('RECON_ALL IMPORT INISHED')
     except BaseException as e:
@@ -333,13 +341,13 @@ def make_scalp_surfaces(mri=None, subjid=None, subjects_dir=None,
         reconall_error = 1
     
     try:
-        subprocess.run(f'mkheadsurf -s {subjid}'.split(), check=True)
+        subprocess.run(f'mkheadsurf -s {bids_subjid}'.split(), check=True)
         subj_logger.info('MKHEADSURF FINISHED')
     except:
         try:
-            proc_cmd = f"mkheadsurf -i {op.join(subjects_dir, subjid, 'mri', 'T1.mgz')} \
-                -o {op.join(subjects_dir, subjid, 'mri', 'seghead.mgz')} \
-                -surf {op.join(subjects_dir, subjid, 'surf', 'lh.seghead')}"
+            proc_cmd = f"mkheadsurf -i {op.join(subjects_dir, bids_subjid, 'mri', 'T1.mgz')} \
+                -o {op.join(subjects_dir, bids_subjid, 'mri', 'seghead.mgz')} \
+                -surf {op.join(subjects_dir, bids_subjid, 'surf', 'lh.seghead')}"
             subprocess.run(proc_cmd.split(), check=True)
         except BaseException as e:
             subj_logger.error('MKHEADSURF (ANON)')
@@ -393,12 +401,18 @@ def read_meg(meg_fname):
 
     if meg_fname[-1]==os.path.sep:
         meg_fname=meg_fname[:-1]
-    _, ext = os.path.splitext(meg_fname)
+    path, ext = os.path.splitext(meg_fname)
     if ext == '.fif':
-        return mne.io.read_raw_fif(meg_fname)
-    
+        return mne.io.read_raw_fif(meg_fname)   
     if ext == '.ds':
         return mne.io.read_raw_ctf(meg_fname)
+    if ext == '':
+        if  ',' in os.path.basename(meg_fname):
+            raw=mne.io.read_raw_bti(meg_fname, head_shape_fname=None)
+            #raw=mne.io.read_raw_bti(meg_fname, head_shape_fname=None, convert=False)     # This code can be uncommented and used if the BTI/4D code
+            #for i in range(len(raw.info['chs'])):ArithmeticError                         # was processed similar to the HCP data
+            #    raw.info['chs'][i]['coord_frame'] = 1
+            return raw
         
 def process_mri_bids(dframe=None, topdir=None, bidsonly=0):
     logger = logging.getLogger('process_logger')
