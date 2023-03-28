@@ -406,6 +406,8 @@ def read_meg(meg_fname):
         return mne.io.read_raw_fif(meg_fname)   
     if ext == '.ds':
         return mne.io.read_raw_ctf(meg_fname)
+    if ext == '.sqd':
+        return mne.io.read_raw_kit(meg_fname)
     if ext == '':
         if  ',' in os.path.basename(meg_fname):
             raw=mne.io.read_raw_bti(meg_fname, head_shape_fname=None)
