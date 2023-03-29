@@ -1,4 +1,4 @@
-# enigma_anonymization
+# enigma_anonymization_lite
 ## Requires
 Freesurfer <br>
 https://surfer.nmr.mgh.harvard.edu/fswiki/rel7downloads <br>
