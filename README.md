@@ -16,7 +16,7 @@ While it was developed for the ENIGMA MEG Working Group, it is useful for anyone
 share their data. There is a specific function for each processing pipeline that you may be 
 using. Currently, MNE python is implemented, with others coming soon. 
 
-## Running MNE anonymization tool
+## Running the anonymization/bidsification for MNE Python users
 ```
 usage: process_anonymization_mne.py [-h] [-topdir TOPDIR]
                                 [-csvfile CSVFILE] [-njobs NJOBS]
@@ -50,6 +50,20 @@ optional arguments:
   -csvfile CSVFILE	The name of the CSV file described above
   -njobs NJOBS		Optional, number of jobs for Freesurfer processing
   -linefreq LINEFREQ	Optional, powerline frequency, defaults to 60s
+```
+## Anonymization/bidsification for Brainstorm users
+```
+Brainstorm users should use the "Export BIDS dataset [experimental]" process, which will
+create the BIDS data structure for both the MEG and MRI datasets. Brainstorm will not, 
+however, update the BIDS structure with the location of the MEG fiducials in the space
+of the anatomical MRI. For that, we have provided and additional tool. 
+
+usage: update_json_bstorm.py [-h] [-bids_root BIDS_ROOT] [-bids_id BIDS_ID]
+			[-bst_id BST_ID] [-bst_datapath BST_DATAPATH]
+
+This function will take the location of the BIDS tree produced by Brainstorm, the BIDS ID 
+in the bids_root (which should have the form sub-SUBJID), the Brainstorm subject ID, and 
+the datapath to the Brainstorm Protocol data folder. 
 ```
 ## Running QA tool
 ```
