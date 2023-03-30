@@ -14,13 +14,14 @@ pip install git+https://github.com/nih-megcore/enigma_anonymization_lite
 This is a suite of tools for anonymization and bidsification of MEG and structural MRI data.
 While it was developed for the ENIGMA MEG Working Group, it is useful for anyone wanting to 
 share their data. There is a specific function for each processing pipeline that you may be 
-using. Currently, MNE python is implemented, with others coming soon. 
+using. Currently, a fully functional MNE python is implemented, with an additional tool for 
+Brainstorm users. Other functions will be added at user request. 
 
 ## Running the anonymization/bidsification for MNE Python users
 ```
 usage: process_anonymization_mne.py [-h] [-topdir TOPDIR]
                                 [-csvfile CSVFILE] [-njobs NJOBS]
-				[-linefreq LINEFREQ]
+				[-linefreq LINEFREQ] [-bidsonly]
 ```
 This function takes a csv file containing a list of datasets to
 convert to BIDS format. A sample file (sample.csv) is distributed
@@ -50,6 +51,7 @@ optional arguments:
   -csvfile CSVFILE	The name of the CSV file described above
   -njobs NJOBS		Optional, number of jobs for Freesurfer processing
   -linefreq LINEFREQ	Optional, powerline frequency, defaults to 60s
+  -bidsonly		Perform bidsification only, with no anonymization
 ```
 ## Anonymization/bidsification for Brainstorm users
 
