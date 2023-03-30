@@ -21,6 +21,6 @@ setuptools.setup(
     python_requires='>=3.6',
     install_requires=['mne>=1.2', 'mne_bids>=0.11', 'joblib', 'nibabel', 'wget', 
         'multiprocess', 'pandas', 'PySimpleGUI'], 
-    scripts=['enigma_anonymization_lite/enigma_anonymization_mne.py','enigma_anonymization_lite/enigma_anon_QA.py','enigma_anonymization_lite/update_json_bstorm.py'],
+    scripts=['enigma_anonymization_lite/enigma_anonymization_mne.py','enigma_anonymization_lite/enigma_anon_QA.py','enigma_anonymization_lite/update_json_bstorm.py','enigma_anonymization_lite/enigma_anon_parseQAlogs.py'],
     include_package_data=True,
 )

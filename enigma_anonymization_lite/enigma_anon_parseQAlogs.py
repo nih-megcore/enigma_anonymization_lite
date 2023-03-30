@@ -47,5 +47,5 @@ if __name__ == '__main__':
         data_dict[subject] = status
         
     data_frame = pd.DataFrame.from_dict(data_dict, orient='index')    
-    dataframe_path = op.join(QA_root,'QA_summary.csv')
+    dataframe_path = op.join(QA_root,'coreg_QA_summary.csv')
     data_frame.to_csv(dataframe_path)
