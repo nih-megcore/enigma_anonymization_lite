@@ -67,14 +67,28 @@ This function will take the location of the BIDS tree produced by Brainstorm, th
 in the bids_root (which should have the form sub-SUBJID), the Brainstorm subject ID, and 
 the datapath to the Brainstorm Protocol data folder. 
 
-## Running QA tool
+## Running the QA tool
 ```
 usage: Run_QA.py [-h] [-bids_root BIDS_ROOT] [-rows ROWS]
 			[-columns COLUMNS] [-imgsize IMGSIZE]
 ```
 This function runs an easy to use QA browser to assess .png images returned from any
-of the process_anonimization_X.py routines. Users can tag images as GOOD or BAD by 
-clicking on the image. A "Save" button will save this infomation in a log file that can
-be parsed. This routine can be run with no arguments, in which case the default bids_root
-is bids_out, 4 rows, 2 columns, and an image size of 400. The log file will be stored in
+of the process_anonimization_X.py routines. By clicking on each image, users can toggle 
+through states including "GOOD" (green outline), "BAD" (red outline) and "Unchecked" (grey
+outline). A "Save" button will save this infomation in a log file. You can change the size
+of the matrix of images displayed, as well as the size of each image. This routine can be 
+run with no arguments, in which case the default bids_root is bids_out, 4 rows, 2 columns, 
+and an image size of 400. The log file will be stored in:
+```
 bids_out/derivatives/BIDS_ANON_QA/Coreg_QA_logfile.txt
+```
+The logfile will state if an image has been marked "GOOD", "BAD", or unchecked. If you would 
+like this logfile in an easier to use CSV format, you can run an additional tool:
+```
+usage: enigma_anon_parseQAlogs.py [-h] [-bids_root BIDS_ROOT]
+```
+This commmand will produce a file: 
+```
+bids_out/derivatives/BIDS_ANON_QA/Coreg_QA_summary.csv
+```
+This file can easily be opened with any spreadsheet program. 
