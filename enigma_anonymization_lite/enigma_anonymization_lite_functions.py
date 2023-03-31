@@ -172,31 +172,6 @@ def get_subj_logger(subjid, log_dir=None):
 
 # Creates a symbolic link for the surface files in the bem directory
 
-def link_surf_anon(subjid=None, subjects_dir=None):
-    '''Link the surfaces to the BEM dir
-    Looks for lh.seghead and links to bem/outer_skin.surf
-    Tests for broken links and corrects'''
-    subjid = 'sub-' + subjid
-    anon_subjid = subjid+'_defaced'
-    s_bem_dir = f'{subjects_dir}/{anon_subjid}/bem'
-    src_file = f'{subjects_dir}/{anon_subjid}/surf/lh.seghead'
-    link_path = f'{s_bem_dir}/outer_skin.surf'
-    subj_logger = get_subj_logger(subjid)
-    if not os.path.exists(s_bem_dir):
-        os.mkdir(s_bem_dir)
-        subj_logger.info('creating bem directory')
-    if not os.path.exists(link_path):
-        try:
-            os.symlink(src_file, link_path)
-        except:
-            pass  #If broken symlink - this is fixed below
-    #Test and fix broken symlink
-    if not os.path.exists(os.readlink(link_path)):
-        subj_logger.info(f'Fixed broken link: {link_path}')
-        os.unlink(link_path)
-        os.symlink(src_file, link_path)
-    subj_logger.info('surface file linked to bem directory')
-
 def link_surf(subjid=None, subjects_dir=None):
     '''Link the surfaces to the BEM dir
     Looks for lh.seghead and links to bem/outer_skin.surf
@@ -234,6 +209,7 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None,
     Render the defaced Scalp for the subjid_anon
     '''
     anon_subjid = 'sub-'+subjid+'_defaced'
+    bids_subjid = 'sub-'+subjid
     prefix, ext = os.path.splitext(mri)
     if ext=='.gz':   # for a .nii.gz mri, split againt to remove the .nii
         prefix, ext = os.path.splitext(prefix)
@@ -274,9 +250,9 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None,
     # only do the freesurfer processing for the defaced MRI
         
     try:
-        subprocess.run(f'recon-all -i {anon_mri} -s {anon_subjid}'.split(),
+        subprocess.run(f'recon-all -i {anon_mri} -s {bids_subjid}'.split(),
                        check=True)
-        subprocess.run(f'recon-all -autorecon1 -noskullstrip -s {anon_subjid}'.split(),
+        subprocess.run(f'recon-all -autorecon1 -noskullstrip -s {bids_subjid}'.split(),
                        check=True)
         subj_logger.info('RECON_ALL IMPORT (ANON) FINISHED')
     except BaseException as e:
@@ -285,13 +261,13 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None,
         reconall_error = 1
     
     try:
-        subprocess.run(f'mkheadsurf -s {anon_subjid}'.split(), check=True)
+        subprocess.run(f'mkheadsurf -s {subjid}'.split(), check=True)
         subj_logger.info('MKHEADSURF (ANON) FINISHED')
     except:
         try:
-            proc_cmd = f"mkheadsurf -i {op.join(subjects_dir, anon_subjid, 'mri', 'T1.mgz')} \
-                -o {op.join(subjects_dir, anon_subjid, 'mri', 'seghead.mgz')} \
-                -surf {op.join(subjects_dir, anon_subjid, 'surf', 'lh.seghead')}"
+            proc_cmd = f"mkheadsurf -i {op.join(subjects_dir, bids_subjid, 'mri', 'T1.mgz')} \
+                -o {op.join(subjects_dir, bids_subjid, 'mri', 'seghead.mgz')} \
+                -surf {op.join(subjects_dir, bids_subjid, 'surf', 'lh.seghead')}"
             subprocess.run(proc_cmd.split(), check=True)
         except BaseException as e:
             subj_logger.error('MKHEADSURF (ANON)')
@@ -299,7 +275,7 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None,
             mkheadsurf_error = 1
                 
     try:
-        link_surf_anon(subjid, subjects_dir=subjects_dir)      
+        link_surf(subjid, subjects_dir=subjects_dir)      
     except BaseException as e:
         subj_logger.error('Link error on BEM')
         subj_logger.error(e)
@@ -441,10 +417,7 @@ def process_mri_bids(dframe=None, topdir=None, bidsonly=0):
                 t1w_bids_path = \
                     BIDSPath(subject=sub, session=ses, root=output_path, suffix='T1w')
                     
-                if bidsonly == 1:
-                    fs_subject='sub-'+row['subjid']
-                else:
-                    fs_subject='sub-'+row['subjid']+'_defaced'
+                fs_subject='sub-'+row['subjid']
                     
                 landmarks = get_anat_landmarks(
                     image=t1_path,
@@ -538,10 +511,7 @@ def loop_QA_report(dframe, subjects_dir=None, topdir=None, bidsonly=0):
 
     for idx, row in dframe.iterrows():
         subjid=row['subjid']
-        if bidsonly == 0:
-            subject = 'sub-'+subjid+'_defaced'
-        else:
-            subject = 'sub-'+subjid
+        subject = 'sub-'+subjid
         meg_fname=row['full_meg_path']
         raw = read_meg(meg_fname)
         subjects_dir=subjects_dir               
