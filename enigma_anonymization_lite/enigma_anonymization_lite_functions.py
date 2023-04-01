@@ -252,7 +252,7 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None,
     try:
         subprocess.run(f'recon-all -i {anon_mri} -s {bids_subjid}'.split(),
                        check=True)
-        subprocess.run(f'recon-all -autorecon1 -noskullstrip -s {bids_subjid}'.split(),
+        subprocess.run(f'recon-all -autorecon1 -s {bids_subjid}'.split(),
                        check=True)
         subj_logger.info('RECON_ALL IMPORT (ANON) FINISHED')
     except BaseException as e:
