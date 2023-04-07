@@ -261,7 +261,7 @@ def make_scalp_surfaces_anon(mri=None, subjid=None, subjects_dir=None,
         reconall_error = 1
     
     try:
-        subprocess.run(f'mkheadsurf -s {subjid}'.split(), check=True)
+        subprocess.run(f'mkheadsurf -s {bids_subjid}'.split(), check=True)
         subj_logger.info('MKHEADSURF (ANON) FINISHED')
     except:
         try:
