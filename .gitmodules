@@ -1,0 +1,3 @@
+[submodule "enigma_anonymization_lite/tests/TEST_ctf_data"]
+	path = enigma_anonymization_lite/tests/TEST_ctf_data
+	url = https://github.com/nih-megcore/TEST_ctf_data.git
