@@ -6,21 +6,21 @@ SHELL=/bin/bash
 CONDA_ACTIVATE=source $$(conda info --base)/etc/profile.d/conda.sh ; conda activate ; conda activate 
 # <<<<
 
-install:
-	conda install -c conda-forge mne==0.23 -n enigma_meg_prep
-	pip install wget
-	pip install git+https://github.com/nih-megcore/nih_to_mne
+#install:
+#	conda install -c conda-forge mne==0.23 -n enigma_meg_prep
+#	pip install wget
+#	pip install git+https://github.com/nih-megcore/nih_to_mne
 
 	
 install_test:
-	conda install mamba -y -n base
-	mamba create -n enigma_prep_test -c conda-forge mne==0.23 datalad -y
-	($(CONDA_ACTIVATE) enigma_prep_test ; pip install -r ./requirements.txt)
-	
+	conda install --channel=conda-forge --name=base mamba -y
+	mamba create --override-channels --channel=conda-forge --name=enigma_meg_test mne pip -y
+	($(CONDA_ACTIVATE) enigma_meg_test ; pip install git+https://github.com/nih-megcore/enigma_anonymization_lite.git pytest  )
+	git pull --recurse-submodules
 
 install_system_requirements:
 	dnf install Xvfb -y
 	dnf install git git-annex -y
 
 test:
-	($(CONDA_ACTIVATE) enigma_prep_test ; xvfb-run -a pytest -s )
+	($(CONDA_ACTIVATE) enigma_meg_test ; pytest -vv  )  #xvfb-run -a pytest -s )
