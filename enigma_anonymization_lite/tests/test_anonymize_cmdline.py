@@ -11,6 +11,7 @@ import pandas as pd
 import os.path as op
 import subprocess
 import pytest
+from pytest import Testdir
 
 #The following requires a full git clone
 eal_path = enigma_anonymization_lite.__path__[0]
@@ -28,7 +29,11 @@ samp_dframe['trans_fname'] = op.join(test_mri_dir, 'ABABABAB-trans.fif')
 test_csv_fname = op.join(test_dir, 'input.csv')
 samp_dframe.to_csv(test_csv_fname)
 
-def test_cmdline(tmp_dir):
-    cmd = f'process_anonymization_mne.py -csvfile {test_csv_fname} -njobs 1\
-        -linefreq 60 -topdir {tmp_dir}'
-    subprocess.run(cmd.split())
+@pytest.fixture(scope="session")
+def bids_path(tmp_path_factory):
+    tmp_path = tmp_path_factory.mktemp('bids')
+    return tmp_path
+    
+def test_cmdline(bids_path):
+    cmd = f'enigma_anonymization_mne.py -csvfile {test_csv_fname} -njobs 1 -linefreq 60 -topdir {str(bids_path)}'
+    subprocess.run(cmd.split(), check=True)
