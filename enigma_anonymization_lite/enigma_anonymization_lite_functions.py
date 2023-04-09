@@ -388,7 +388,7 @@ def read_meg(meg_fname):
         if  ',' in os.path.basename(meg_fname):
             raw=mne.io.read_raw_bti(meg_fname, head_shape_fname=None)
             #raw=mne.io.read_raw_bti(meg_fname, head_shape_fname=None, convert=False)     # This code can be uncommented and used if the BTI/4D code
-            #for i in range(len(raw.info['chs'])):ArithmeticError                         # was processed similar to the HCP data
+            #for i in range(len(raw.info['chs'])):                                       # was processed similar to the HCP data
             #    raw.info['chs'][i]['coord_frame'] = 1
             return raw
         
@@ -407,11 +407,17 @@ def process_mri_bids(dframe=None, topdir=None, bidsonly=0):
             
                 raw = read_meg(row['full_meg_path'])          #FIX currently should be full_meg_path - need to verify anon
                 trans = mne.read_trans(row['trans_fname'])
-                t1_fname = 'sub-%s_anat_defaced.nii' % sub
+                if bidsonly == True:
+                    t1_fname = 'sub-%s_anat.nii' % sub
+                else:
+                    t1_fname = 'sub-%s_anat_defaced.nii' % sub
                 if op.exists(op.join(staging_dir, t1_fname)):
                     t1_path = op.join(topdir,'staging_dir',t1_fname)
                 else:
-                    t1_fname = 'sub-%s_anat_defaced.nii.gz' % sub
+                    if bidsonly == True:
+                        t1_fname = 'sub-%s_anat.nii.gz' % sub
+                    else:
+                        t1_fname = 'sub-%s_anat_defaced.nii.gz' % sub
                     t1_path = op.join(topdir,'staging_dir',t1_fname)                  
                 
                 t1w_bids_path = \
