@@ -30,10 +30,23 @@ test_csv_fname = op.join(test_dir, 'input.csv')
 samp_dframe.to_csv(test_csv_fname)
 
 @pytest.fixture(scope="session")
-def bids_path(tmp_path_factory):
+def top_dir(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp('bids')
     return tmp_path
     
-def test_cmdline(bids_path):
-    cmd = f'enigma_anonymization_mne.py -csvfile {test_csv_fname} -njobs 1 -linefreq 60 -topdir {str(bids_path)}'
+def test_cmdline(top_dir):
+    cmd = f'enigma_anonymization_mne.py -csvfile {test_csv_fname} -njobs 1 -linefreq 60 -topdir {str(top_dir)}'
     subprocess.run(cmd.split(), check=True)
+    bids_path = op.join(str(top_dir), 'bids_out')
+    subjid = 'sub-ABABABAB'
+    assert op.exists(op.join(bids_path, subjid))
+    assert op.exists(op.join(bids_path, 'derivatives'))
+    assert op.exists(op.join(bids_path, 'derivatives', 'freesurfer', 'subjects', subjid))
+    assert op.exists(op.join(bids_path, 'staging_dir', f'{subjid}_anat.nii.gz'))
+    assert op.exists(op.join(bids_path, 'staging_dir', f'{subjid}_anat_defaced.nii.gz'))
+    assert op.exists(op.join(bids_path, 'derivatives' , 'BIDS_ANON_QA'))
+    assert op.exists(op.join(bids_path, 'derivatives' , 'BIDS_ANON_QA', f'{subjid}_coreg.png'))  
+    assert op.exists(op.join(bids_path, subjid, 'ses-1', 'anat', f'{subjid}_ses-1_T1w.nii.gz'))
+    assert op.exists(op.join(bids_path, subjid, 'ses-1', 'anat', f'{subjid}_ses-1_T1w.json'))
+
+
