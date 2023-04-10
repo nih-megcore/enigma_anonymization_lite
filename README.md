@@ -19,7 +19,7 @@ Brainstorm users. Other functions will be added at user request.
 
 ## Running the anonymization/bidsification for MNE Python users
 ```
-usage: process_anonymization_mne.py [-h] [-topdir TOPDIR]
+usage: enigma_anonymization_mne.py [-h] [-topdir TOPDIR]
                                 [-csvfile CSVFILE] [-njobs NJOBS]
 				[-linefreq LINEFREQ] [-bidsonly]
 ```
