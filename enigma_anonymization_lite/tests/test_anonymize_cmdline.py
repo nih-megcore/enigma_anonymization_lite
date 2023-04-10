@@ -34,9 +34,9 @@ def top_dir(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp('bids')
     return tmp_path
     
-# def test_cmdline(top_dir):
-#     cmd = f'enigma_anonymization_mne.py -csvfile {test_csv_fname} -njobs 1 -linefreq 60 -topdir {str(top_dir)}'
-#     subprocess.run(cmd.split(), check=True)
+def test_cmdline(top_dir):
+    cmd = f'enigma_anonymization_mne.py -csvfile {test_csv_fname} -njobs 1 -linefreq 60 -topdir {str(top_dir)}'
+    subprocess.run(cmd.split(), check=True)
     
 def test_check_outputs(top_dir):
     '''Split to secondary function so it can be analyzed without re-running 
