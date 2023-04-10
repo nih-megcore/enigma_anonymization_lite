@@ -15,7 +15,7 @@ CONDA_ACTIVATE=source $$(conda info --base)/etc/profile.d/conda.sh ; conda activ
 install_test:
 	conda install --channel=conda-forge --name=base mamba -y
 	mamba create --override-channels --channel=conda-forge --name=enigma_meg_test mne pip -y
-	($(CONDA_ACTIVATE) enigma_meg_test ; pip install git+https://github.com/nih-megcore/enigma_anonymization_lite.git pytest  )
+	($(CONDA_ACTIVATE) enigma_meg_test ; pip install -e .; pip install pytest pytest-reportlog )
 	git pull --recurse-submodules
 
 install_system_requirements:
@@ -23,4 +23,4 @@ install_system_requirements:
 	dnf install git git-annex -y
 
 test:
-	($(CONDA_ACTIVATE) enigma_meg_test ; pytest -vv  )  #xvfb-run -a pytest -s )
+	($(CONDA_ACTIVATE) enigma_meg_test ; cd enigma_anonymization_lite; pytest -vv --report-log=./test_logfile.txt )  #xvfb-run -a pytest -s )
