@@ -16,6 +16,7 @@ install_test:
 	conda install --channel=conda-forge --name=base mamba -y
 	mamba create --override-channels --channel=conda-forge --name=enigma_meg_test mne pip -y
 	($(CONDA_ACTIVATE) enigma_meg_test ; pip install -e .; pip install pytest pytest-reportlog )
+	git submodule init
 	git pull --recurse-submodules
 
 install_system_requirements:
