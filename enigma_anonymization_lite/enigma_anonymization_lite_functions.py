@@ -451,11 +451,14 @@ def process_meg_bids(dframe=None, topdir=None, linefreq=60, bidsonly=0):
     bids_dir = f'{topdir}/bids_out'
     if not os.path.exists(bids_dir): os.mkdir(bids_dir)
     if set(['empty_room']).issubset(dframe.columns):
-        eroom=True
+        eroom_exits=True
     else:
-        eroom=False
+        eroom_exists=False
         
     for idx, row in dframe.iterrows():
+        
+        print('index: %d' % idx)
+        print(row)
         
         subj_logger = get_subj_logger('sub-'+row.subjid, log_dir=f'{topdir}/logs')
         
@@ -473,16 +476,18 @@ def process_meg_bids(dframe=None, topdir=None, linefreq=60, bidsonly=0):
                                   run=run, root=output_path, suffix='meg')
                 
             if bidsonly == 0:
+                print('writing anonymized MEG and scrambling date')
                 daysback = 35000 + randint(1, 1000)
                 write_raw_bids(raw, bids_path, anonymize={'daysback':daysback, 'keep_his':False, 'keep_source':False},
                       overwrite=True)
             else:
+                print('writing non-anonymized MEG')
                 write_raw_bids(raw, bids_path, overwrite=True)
             
         except BaseException as e:
             subj_logger.exception('MEG BIDS PROCESSING:', e)
             
-        if eroom == True:
+        if eroom_exists == True:
            try:
                eroom_fname = row['empty_room']
                eroom = read_meg(eroom_fname)
@@ -494,10 +499,12 @@ def process_meg_bids(dframe=None, topdir=None, linefreq=60, bidsonly=0):
                bids_path = BIDSPath(subject=sub, session=ses, task=task,
                                      run=run, root=output_path, suffix='meg')
                if bidsonly == 0:
+                   print('writing anonymized eroom MEG and scrambling date')
                    daysback = 35000 + randint(1, 1000)  
                    write_raw_bids(eroom, bids_path, anonymize={'daysback':daysback, 'keep_his':False, 'keep_source':False},
                          overwrite=True)
                else:
+                   print('writing non-anonymized eroom MEG, not scrambling date')
                    write_raw_bids(eroom, bids_path, overwrite=True)
                 
            except BaseException as e:
