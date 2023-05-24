@@ -3,3 +3,4 @@ pandas
 multiprocess
 mne
 mne_bids
+pyvistaqt
