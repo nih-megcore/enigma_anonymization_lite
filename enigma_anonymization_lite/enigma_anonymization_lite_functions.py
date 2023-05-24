@@ -379,7 +379,7 @@ def read_meg(meg_fname):
         meg_fname=meg_fname[:-1]
     path, ext = os.path.splitext(meg_fname)
     if ext == '.fif':
-        return mne.io.read_raw_fif(meg_fname)   
+        return mne.io.read_raw_fif(meg_fname, allow_maxshield=True)   
     if ext == '.ds':
         return mne.io.read_raw_ctf(meg_fname)
     if ext == '.sqd':
@@ -451,7 +451,7 @@ def process_meg_bids(dframe=None, topdir=None, linefreq=60, bidsonly=0):
     bids_dir = f'{topdir}/bids_out'
     if not os.path.exists(bids_dir): os.mkdir(bids_dir)
     if set(['empty_room']).issubset(dframe.columns):
-        eroom_exits=True
+        eroom_exists=True
     else:
         eroom_exists=False
         
