@@ -517,6 +517,8 @@ def loop_QA_report(dframe, subjects_dir=None, topdir=None, bidsonly=0):
     from mne.viz._brain.view import views_dicts
     from mne.viz import set_3d_view
     from mne.viz.backends.renderer import backend
+    
+    mne.viz.set_3d_backend('pyvistaqt')
     #from mne.viz.utils import _ndarray_to_fig
     png_path=op.join(topdir,'bids_out/derivatives/BIDS_ANON_QA/')
     report_path=op.join(topdir, 'bids_out/derivatives/BIDS_ANON_QA/Coreg_QA_report.html')
