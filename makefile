@@ -20,7 +20,11 @@ install_system_requirements:
 	dnf install git git-annex -y
 
 test:
-	($(CONDA_ACTIVATE) enigma_meg_test ; cd enigma_anonymization_lite; pytest -vv --report-log=./test_logfile.txt )  #xvfb-run -a pytest -s )
+	($(CONDA_ACTIVATE) enigma_meg_test ; cd enigma_anonymization_lite; pytest -vv --report-log=/tmp/enigma_anonymization_test_logfile.txt )  
+
+test_headless:
+	($(CONDA_ACTIVATE) enigma_meg_test ; cd enigma_anonymization_lite; xvfb-run -a pytest -vv --report-log=/tmp/enigma_anonymization_test_logfile.txt )
+
 
 test_iterate_fs:
 	($(CONDA_ACTIVATE) enigma_meg_test ; cd enigma_anonymization_lite; pytest -vv --report-log=./test_logfile.txt )  #xvfb-run -a pytest -s )
