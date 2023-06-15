@@ -35,7 +35,8 @@ def top_dir(tmp_path_factory):
     return tmp_path
     
 def test_cmdline(top_dir):
-    cmd = f'enigma_anonymization_mne.py -csvfile {test_csv_fname} -njobs 1 -linefreq 60 -topdir {str(top_dir)}'
+    fullpath_exe = op.join(enigma_anonymization_lite.__path__[0], 'enigma_anonymization_mne.py')
+    cmd = f'{fullpath_exe} -csvfile {test_csv_fname} -njobs 1 -linefreq 60 -topdir {str(top_dir)}'
     subprocess.run(cmd.split(), check=True)
     
 def test_check_outputs(top_dir):
