@@ -381,7 +381,7 @@ def read_meg(meg_fname):
     if ext == '.fif':
         return mne.io.read_raw_fif(meg_fname, allow_maxshield=True)   
     if ext == '.ds':
-        return mne.io.read_raw_ctf(meg_fname)
+        return mne.io.read_raw_ctf(meg_fname, system_clock='ignore')
     if ext == '.sqd':
         return mne.io.read_raw_kit(meg_fname)
     if ext == '':
