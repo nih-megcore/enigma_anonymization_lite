@@ -15,11 +15,9 @@ install_test:
 	git pull --recurse-submodules
 
 install_headless_test:
-	#conda install --channel=conda-forge --name=base mamba -y
-	conda env remove -n enigma_meg_test
-	mamba create --override-channels --channel=conda-forge --name=enigma_meg_test mne pip -y
-	mamba install --name=enigma_meg_test -c conda-forge "vtk>=9.2=*osmesa*" "mesalib=21.2.5" -y
-	($(CONDA_ACTIVATE) enigma_meg_test ; pip install -e .; pip install pytest pytest-reportlog )
+	#conda env remove -n enigma_meg_test
+	mamba create --override-channels --channel=conda-forge --name=enigma_meg_test mne pip "vtk>=9.2=*osmesa*" "mesalib=21.2.5" -y
+	($(CONDA_ACTIVATE) enigma_meg_test ; pip install -e .; pip install pytest  )
 	git submodule init
 	git pull --recurse-submodules
 
@@ -31,7 +29,9 @@ test:
 	($(CONDA_ACTIVATE) enigma_meg_test ; cd enigma_anonymization_lite; pytest -vv --report-log=/tmp/enigma_anonymization_test_logfile.txt )  
 
 test_headless:
-	($(CONDA_ACTIVATE) enigma_meg_test ; cd enigma_anonymization_lite; xvfb-run -a pytest -vv --report-log=/tmp/enigma_anonymization_test_logfile.txt )
+	export FREESURFER_HOME=/opt/freesurfer/freesurfer_7_4_0/
+	source /opt/freesurfer/freesurfer_7_4_0/SetUpFreeSurfer.sh
+	($(CONDA_ACTIVATE) enigma_meg_test ; cd enigma_anonymization_lite; xvfb-run -a pytest -vv )
 
 
 test_iterate_fs:
