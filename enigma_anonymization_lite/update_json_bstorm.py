@@ -37,7 +37,17 @@ def bstormFid2dict(subjid, bstorm_datadir):
         Locations of anatomical fiducials.
 
     '''
-    subj_anat=op.join(bstorm_datadir, 'anat', subjid, 'subjectimage_MRI.mat')
+
+    subj_folder = op.join(bstorm_datadir, 'anat', subjid)
+    mri_filename_pattern = r"subjectimage_*.mat"
+    subj_anat_list = glob.glob(op.join(subj_folder, mri_filename_pattern))
+    if len(subj_anat_list) > 1:
+        raise ValueError(f'More than on MRI files, cannot chose: {subj_anat_list}')
+    if len(subj_anat_list) == 0:
+        raise ValueError(f'No MRI files in the subject folder {subj_folder}')
+    
+    subj_anat = subj_anat_list[0]
+
     mat = loadmat(subj_anat)
     
     #There is probably a more elegant way to do this
