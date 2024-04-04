@@ -32,6 +32,16 @@ if __name__=='__main__':
     parser.add_argument('-njobs',help='''The number of jobs for parallel processing, defaults to one''', type=int)
     parser.add_argument('-linefreq',help='''The linefrequency for the country of data collection''', type=int)
     parser.add_argument('-bidsonly',help='''Run bidsification only without anonymization''', action='store_true')
+    parser.add_argument('-force_cras',
+                        help='''In the special case that the transformation matrix is 
+                        labelled as a surface registration, when it is actually
+                        a volume registration.  e.g. MRIlab outputs from the 
+                        Elekta software will read in as surface registration in
+                        MNE python.
+                        ''',
+                        action='store_true', 
+                        default=False
+                        )
     parser.description='''This python script implements anonymization and BIDSification of a dataset. We hope you enjoy using it as much as we enjoyed making it.'''
     
     args = parser.parse_args()
@@ -96,7 +106,7 @@ if __name__=='__main__':
     
     # create the BIDS structure for the MRI scans
     
-    process_mri_bids(dframe=dframe, topdir=topdir, bidsonly=bidsonly)
+    process_mri_bids(dframe=dframe, topdir=topdir, bidsonly=bidsonly, force_cras=args.force_cras)
     
     # create the BIDS structure for the MEG scans - if there's an empty room dataset, do that one first
     

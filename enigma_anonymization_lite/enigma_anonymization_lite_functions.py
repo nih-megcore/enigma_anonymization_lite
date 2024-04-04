@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 import mne_bids
 from mne_bids import write_anat, BIDSPath, write_raw_bids, get_anat_landmarks 
 from random import randint
+import nibabel as nib
 
 from enigma_anonymization_lite.utils import _sidecar_json_patched
 mne_bids.write._sidecar_json = _sidecar_json_patched
@@ -392,7 +393,7 @@ def read_meg(meg_fname):
             #    raw.info['chs'][i]['coord_frame'] = 1
             return raw
         
-def process_mri_bids(dframe=None, topdir=None, bidsonly=0):
+def process_mri_bids(dframe=None, topdir=None, bidsonly=0, force_cras=False):
     logger = logging.getLogger('process_logger')
     logger.info('Populating BIDS structure with MRI scans')
     bids_dir = f'{topdir}/bids_out'
@@ -418,7 +419,13 @@ def process_mri_bids(dframe=None, topdir=None, bidsonly=0):
                         t1_fname = 'sub-%s_anat.nii.gz' % sub
                     else:
                         t1_fname = 'sub-%s_anat_defaced.nii.gz' % sub
-                    t1_path = op.join(topdir,'staging_dir',t1_fname)                  
+                    t1_path = op.join(topdir,'staging_dir',t1_fname) 
+                    
+                if force_cras:
+                    tmp_ = nib.load(t1_path)
+                    _fsver_nii = nib.MGHImage(tmp_.dataobj, tmp_.affine)
+                    _cras = _fsver_nii.header['Pxyz_c']
+                    trans['trans'][:3, 3]-= _cras.T /1000
                 
                 t1w_bids_path = \
                     BIDSPath(subject=sub, session=ses, root=output_path, suffix='T1w')
