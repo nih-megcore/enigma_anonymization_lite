@@ -114,5 +114,6 @@ if __name__=='__main__':
     
     # make the QA report document
     
-    loop_QA_report(dframe, subjects_dir=subjects_dir, topdir=topdir, bidsonly=bidsonly)
+    loop_QA_report(dframe, subjects_dir=subjects_dir, topdir=topdir, 
+                   bidsonly=bidsonly, force_cras=args.force_cras)
     

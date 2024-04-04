@@ -424,6 +424,7 @@ def process_mri_bids(dframe=None, topdir=None, bidsonly=0, force_cras=False):
                 if force_cras:
                     tmp_ = nib.load(t1_path)
                     _fsver_nii = nib.MGHImage(tmp_.dataobj, tmp_.affine)
+                    global _cras
                     _cras = _fsver_nii.header['Pxyz_c']
                     trans['trans'][:3, 3]-= _cras.T /1000
                 
@@ -518,7 +519,8 @@ def process_meg_bids(dframe=None, topdir=None, linefreq=60, bidsonly=0):
                     subj_logger.exception('MEG BIDS PROCESSING:', e)   
     logger.info('Finished MEG recordings')
             
-def loop_QA_report(dframe, subjects_dir=None, topdir=None, bidsonly=0):
+def loop_QA_report(dframe, subjects_dir=None, topdir=None, bidsonly=0, 
+                   force_cras=False):
     logger = logging.getLogger('process_logger')
     logger.info('Beginning creation of QA reports')
     from mne.viz._brain.view import views_dicts
@@ -538,6 +540,9 @@ def loop_QA_report(dframe, subjects_dir=None, topdir=None, bidsonly=0):
         raw = read_meg(meg_fname)
         subjects_dir=subjects_dir               
         trans=row['trans_fname']
+        trans = mne.read_trans(trans)
+        if force_cras==True:
+            trans['trans'][:3, 3]-= _cras.T /1000
         title_text = 'Check coreg and deface (if performed) for subjid %s' % subject
         subj_logger=get_subj_logger('sub-'+subjid, log_dir=f'{topdir}/logs')
         try:
