@@ -1,0 +1,26 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: Enigma_anonymization_lite
+message: >-
+  Easy to use wrapper code and coregistration QA for BIDS
+  creation of resting state MEG data
+type: software
+authors:
+  - given-names: Allison
+    family-names: Nugent
+    email: nugenta@nih.gov
+    affiliation: NIMH
+  - given-names: Jeff
+    family-names: Stout
+    email: stoutjd@nih.gov
+    affiliation: NIMH
+  - given-names: Anna
+    family-names: Namyst
+    email: namystam@nih.gov
+    affiliation: NIMH
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.11390619
+license: CC0-1.0
