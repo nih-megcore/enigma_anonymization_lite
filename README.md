@@ -1,4 +1,6 @@
 # enigma_anonymization_lite
+[![DOI](https://zenodo.org/badge/590572061.svg)](https://zenodo.org/doi/10.5281/zenodo.11390619)
+
 ## Requires
 Freesurfer <br>
 https://surfer.nmr.mgh.harvard.edu/fswiki/rel7downloads <br>
