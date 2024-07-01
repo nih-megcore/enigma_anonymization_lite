@@ -78,7 +78,7 @@ the datapath to the Brainstorm Protocol data folder.
 
 ## Running the QA tool
 ```
-usage: Run_QA.py [-h] [-bids_root BIDS_ROOT] [-rows ROWS]
+usage: enigma_anon_QA.py [-h] [-bids_root BIDS_ROOT] [-rows ROWS]
 			[-columns COLUMNS] [-imgsize IMGSIZE]
 ```
 This function runs an easy to use QA browser to assess .png images returned from any
