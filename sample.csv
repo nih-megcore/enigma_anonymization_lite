@@ -1,2 +1,2 @@
-subjid,full_mri_path,full_meg_path,session,trans_fname
-S01,/datapath/MRI/S01_T1w.nii,/datapath/MEG/S01_auditory-meg.fif,01,/datapath/trans/S01_trans.fif
+subjid,full_mri_path,full_meg_path,session,trans_fname,empty_room
+S01,/datapath/MRI/S01_T1w.nii,/datapath/MEG/S01_auditory-meg.fif,01,/datapath/trans/S01_trans.fif,/datapath/MEG/S01_er-meg.fif
