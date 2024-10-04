@@ -14,7 +14,7 @@ https://surfer.nmr.mgh.harvard.edu/fswiki/rel7downloads <br>
 conda install --channel=conda-forge --name=base mamba
 ```
 ```
-mamba create --override-channels --channel=conda-forge --name=enigma_meg mne
+mamba create --override-channels --channel=conda-forge --name=enigma_meg 'mne=1.5' 'numba<0.60' 'python<3.12'
 conda activate enigma_meg
 pip install git+https://github.com/nih-megcore/enigma_anonymization_lite
 ```
