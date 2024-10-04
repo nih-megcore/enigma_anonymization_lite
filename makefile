@@ -29,8 +29,8 @@ test:
 	($(CONDA_ACTIVATE) enigma_meg_test ; cd enigma_anonymization_lite; pytest -vv --report-log=/tmp/enigma_anonymization_test_logfile.txt )  
 
 test_headless:
-	export FREESURFER_HOME=/opt/freesurfer/freesurfer_7_4_0/
-	source /opt/freesurfer/freesurfer_7_4_0/SetUpFreeSurfer.sh
+	export FREESURFER_HOME=/opt/freesurfer/freesurfer_7_4_1/
+	source /opt/freesurfer/freesurfer_7_4_1/SetUpFreeSurfer.sh
 	($(CONDA_ACTIVATE) enigma_meg_test ; cd enigma_anonymization_lite; xvfb-run -a pytest -vv )
 
 
